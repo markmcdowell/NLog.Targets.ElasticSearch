@@ -19,7 +19,7 @@ namespace NLog.Targets.ElasticSearch
         [RequiredParameter]
         public string Host { get; set; }
 
-        [DefaultValue(25)]
+        [DefaultValue(9200)]
         public int Port { get; set; }
 
         [RequiredParameter]
