@@ -1,0 +1,6 @@
+*.user
+*.suo
+packages/
+Debug/
+Release/
+*.nupkg
