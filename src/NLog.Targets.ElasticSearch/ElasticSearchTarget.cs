@@ -26,12 +26,14 @@ namespace NLog.Targets.ElasticSearch
         public Layout Index { get; set; }
 
         [RequiredParameter]
-        public Layout Type { get; set; }
+        public Layout DocumentType { get; set; }
 
         public ElasticSearchTarget()
         {
             Port = 9200;
-            Host = "localhost";                        
+            Host = "localhost";
+            DocumentType = "logevent";
+            Index = "logstash-${shortdate}";
         }
 
         protected override void InitializeTarget()
@@ -69,7 +71,7 @@ namespace NLog.Targets.ElasticSearch
                 document.Add("message", Layout.Render(logEvent));
                 document.Add("fields", logEvent.Properties);
 
-                payload.Add(new { index = new { _index = Index.Render(logEvent), _type = Type.Render(logEvent) } });
+                payload.Add(new { index = new { _index = Index.Render(logEvent), _type = DocumentType.Render(logEvent) } });
                 payload.Add(document);
             }
 
