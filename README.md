@@ -6,7 +6,7 @@ The ElasticSearch target works best with the BufferingWrapper target applied. By
 ```xml
 <targets>
   <target xsi:type="BufferingWrapper" flushTimeout="5000">
-    <target xsi:type="ElasticSearch" index="logstash-${shortdate}" type="logevent" />
+    <target xsi:type="ElasticSearch" index="logstash-${shortdate}" documentType="logevent" />
   </target>
 </targets>
 ```
