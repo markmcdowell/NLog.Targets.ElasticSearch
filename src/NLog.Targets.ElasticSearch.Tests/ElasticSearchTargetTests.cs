@@ -9,15 +9,7 @@ namespace NLog.Targets.ElasticSearch.Tests
         [Test]
         public void OutputTest()
         {
-            var config = new LoggingConfiguration();
-
-            var elasticSearchTarget = new ElasticSearchTarget();
-            config.AddTarget("file", elasticSearchTarget);
-
-            elasticSearchTarget.Layout = @"${logger} | ${windows-identity:userName=True:domain=False} | ${threadid} | ${message}";
-
-            var rule = new LoggingRule("*", LogLevel.Debug, elasticSearchTarget);
-            config.LoggingRules.Add(rule);
+            var config = new XmlLoggingConfiguration("NLog.Targets.ElasticSearch.Tests.dll.config");
 
             LogManager.Configuration = config;
 

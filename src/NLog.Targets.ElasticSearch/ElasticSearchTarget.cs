@@ -28,12 +28,16 @@ namespace NLog.Targets.ElasticSearch
         [RequiredParameter]
         public Layout DocumentType { get; set; }
 
+        [ArrayParameter(typeof(ElasticSearchField), "field")]
+        public IList<ElasticSearchField> Fields { get; private set; }
+
         public ElasticSearchTarget()
         {
             Port = 9200;
             Host = "localhost";
             DocumentType = "logevent";
             Index = "logstash-${shortdate}";
+            Fields = new List<ElasticSearchField>();
         }
 
         protected override void InitializeTarget()
@@ -69,7 +73,11 @@ namespace NLog.Targets.ElasticSearch
                 if (logEvent.Exception != null)
                     document.Add("exception", logEvent.Exception);
                 document.Add("message", Layout.Render(logEvent));
-                document.Add("fields", logEvent.Properties);
+                if (Fields.Any())
+                {
+                    foreach (var field in Fields)
+                        document.Add(field.Name, field.Layout.Render(logEvent));
+                }
 
                 payload.Add(new { index = new { _index = Index.Render(logEvent), _type = DocumentType.Render(logEvent) } });
                 payload.Add(document);
