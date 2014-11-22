@@ -73,11 +73,8 @@ namespace NLog.Targets.ElasticSearch
                 if (logEvent.Exception != null)
                     document.Add("exception", logEvent.Exception);
                 document.Add("message", Layout.Render(logEvent));
-                if (Fields.Any())
-                {
-                    foreach (var field in Fields)
-                        document.Add(field.Name, field.Layout.Render(logEvent));
-                }
+                foreach (var field in Fields)
+                    document.Add(field.Name, field.Layout.Render(logEvent));
 
                 payload.Add(new { index = new { _index = Index.Render(logEvent), _type = DocumentType.Render(logEvent) } });
                 payload.Add(document);
