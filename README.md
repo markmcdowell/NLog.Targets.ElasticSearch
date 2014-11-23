@@ -1,7 +1,7 @@
 NLog.Targets.ElasticSearch
 ==========================
 
-The ElasticSearch target works best with the BufferingWrapper target applied. By default the target assumes an ElasticSearch node is running on the localhost on port 9200.
+The Elasticsearch target works best with the BufferingWrapper target applied. By default the target assumes an Elasticsearch node is running on the localhost on port 9200.
 
 ```xml
 <nlog>
