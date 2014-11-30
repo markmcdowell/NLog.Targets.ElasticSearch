@@ -76,7 +76,7 @@ namespace NLog.Targets.ElasticSearch
                 foreach (var field in Fields)
                     document.Add(field.Name, field.Layout.Render(logEvent));
 
-                payload.Add(new { index = new { _index = Index.Render(logEvent), _type = DocumentType.Render(logEvent) } });
+                payload.Add(new { index = new { _index = Index.Render(logEvent).ToLowerInvariant(), _type = DocumentType.Render(logEvent) } });
                 payload.Add(document);
             }
 
