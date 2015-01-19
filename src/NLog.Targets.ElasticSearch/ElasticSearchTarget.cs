@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Configuration;
 using System.Linq;
 using Elasticsearch.Net;
 using Elasticsearch.Net.Connection;
@@ -16,13 +17,12 @@ namespace NLog.Targets.ElasticSearch
     {
         private IElasticsearchClient _client;
 
-        [RequiredParameter]
+        public string ConnectionName { get; set; }
         public string Host { get; set; }
 
         [DefaultValue(9200)]
         public int Port { get; set; }
 
-        [RequiredParameter]
         public Layout Index { get; set; }
 
         [RequiredParameter]
@@ -36,7 +36,7 @@ namespace NLog.Targets.ElasticSearch
             Port = 9200;
             Host = "localhost";
             DocumentType = "logevent";
-            Index = "logstash-${shortdate}";
+            Index = "logstash-${date:format=yyyy.MM.dd}";
             Fields = new List<ElasticSearchField>();
         }
 
@@ -44,7 +44,11 @@ namespace NLog.Targets.ElasticSearch
         {
             base.InitializeTarget();
 
-            var node = new Uri(string.Format("http://{0}:{1}", Host, Port));
+            ConnectionStringSettings connectionStringSettings = null;
+            if (!String.IsNullOrEmpty(ConnectionName))
+                connectionStringSettings = ConfigurationManager.ConnectionStrings[ConnectionName];
+
+            var node = connectionStringSettings != null ? new Uri(connectionStringSettings.ConnectionString) : new Uri(string.Format("http://{0}:{1}", Host, Port));
             var connectionPool = new SniffingConnectionPool(new[] { node });
             var config = new ConnectionConfiguration(connectionPool);
             _client = new ElasticsearchClient(config);
@@ -71,16 +75,25 @@ namespace NLog.Targets.ElasticSearch
                 document.Add("@timestamp", logEvent.TimeStamp);
                 document.Add("level", logEvent.Level.Name);
                 if (logEvent.Exception != null)
-                    document.Add("exception", logEvent.Exception);
+                    document.Add("exception", logEvent.Exception.ToString());
                 document.Add("message", Layout.Render(logEvent));
-                foreach (var field in Fields)
-                    document.Add(field.Name, field.Layout.Render(logEvent));
+                foreach (var field in Fields) {
+                    var renderedField = field.Layout.Render(logEvent);
+                    if (!String.IsNullOrWhiteSpace(renderedField))
+                        document[field.Name] = renderedField;
+                }
 
                 payload.Add(new { index = new { _index = Index.Render(logEvent).ToLowerInvariant(), _type = DocumentType.Render(logEvent) } });
                 payload.Add(document);
             }
 
-            _client.Bulk(payload);
+            try {
+                var result = _client.Bulk(payload);
+                if (!result.Success)
+                    InternalLogger.Error("Failed to send log messages to ElasticSearch: status={0} message=\"{1}\"", result.HttpStatusCode, result.OriginalException.Message);
+            } catch (Exception ex) {
+                InternalLogger.Error("Error while sending log messages to ElasticSearch: message=\"{0}\"", ex.Message);
+            }
         }
     }
 }
