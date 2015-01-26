@@ -48,8 +48,8 @@ namespace NLog.Targets.ElasticSearch
             if (!String.IsNullOrEmpty(ConnectionName))
                 connectionStringSettings = ConfigurationManager.ConnectionStrings[ConnectionName];
 
-            var node = connectionStringSettings != null ? new Uri(connectionStringSettings.ConnectionString) : new Uri(string.Format("http://{0}:{1}", Host, Port));
-            var connectionPool = new SniffingConnectionPool(new[] { node });
+            var nodes = connectionStringSettings != null ? connectionStringSettings.ConnectionString.Split(',').Select(url => new Uri(url)) : new[] { new Uri(string.Format("http://{0}:{1}", Host, Port)) };
+            var connectionPool = new StaticConnectionPool(nodes);
             var config = new ConnectionConfiguration(connectionPool);
             _client = new ElasticsearchClient(config);
         }
