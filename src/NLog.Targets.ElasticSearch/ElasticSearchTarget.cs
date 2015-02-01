@@ -18,6 +18,7 @@ namespace NLog.Targets.ElasticSearch
         private IElasticsearchClient _client;
 
         public string ConnectionName { get; set; }
+
         public string Host { get; set; }
 
         [DefaultValue(9200)]
@@ -45,7 +46,7 @@ namespace NLog.Targets.ElasticSearch
             base.InitializeTarget();
 
             ConnectionStringSettings connectionStringSettings = null;
-            if (!String.IsNullOrEmpty(ConnectionName))
+            if (!string.IsNullOrEmpty(ConnectionName))
                 connectionStringSettings = ConfigurationManager.ConnectionStrings[ConnectionName];
 
             var nodes = connectionStringSettings != null ? connectionStringSettings.ConnectionString.Split(',').Select(url => new Uri(url)) : new[] { new Uri(string.Format("http://{0}:{1}", Host, Port)) };
@@ -56,7 +57,7 @@ namespace NLog.Targets.ElasticSearch
 
         protected override void Write(AsyncLogEventInfo logEvent)
         {
-            Write(new []{logEvent});
+            Write(new[] { logEvent });
         }
 
         protected override void Write(AsyncLogEventInfo[] logEvents)
@@ -77,21 +78,28 @@ namespace NLog.Targets.ElasticSearch
                 if (logEvent.Exception != null)
                     document.Add("exception", logEvent.Exception.ToString());
                 document.Add("message", Layout.Render(logEvent));
-                foreach (var field in Fields) {
+                foreach (var field in Fields)
+                {
                     var renderedField = field.Layout.Render(logEvent);
-                    if (!String.IsNullOrWhiteSpace(renderedField))
+                    if (!string.IsNullOrWhiteSpace(renderedField))
                         document[field.Name] = renderedField;
                 }
 
-                payload.Add(new { index = new { _index = Index.Render(logEvent).ToLowerInvariant(), _type = DocumentType.Render(logEvent) } });
+                var index = Index.Render(logEvent).ToLowerInvariant();
+                var type = DocumentType.Render(logEvent);
+
+                payload.Add(new { index = new { _index = index, _type = type } });
                 payload.Add(document);
             }
 
-            try {
+            try
+            {
                 var result = _client.Bulk(payload);
                 if (!result.Success)
                     InternalLogger.Error("Failed to send log messages to ElasticSearch: status={0} message=\"{1}\"", result.HttpStatusCode, result.OriginalException.Message);
-            } catch (Exception ex) {
+            }
+            catch (Exception ex)
+            {
                 InternalLogger.Error("Error while sending log messages to ElasticSearch: message=\"{0}\"", ex.Message);
             }
         }
