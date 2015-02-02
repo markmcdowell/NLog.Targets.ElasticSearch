@@ -94,7 +94,7 @@ namespace NLog.Targets.ElasticSearch
 
             try
             {
-                var result = _client.Bulk(payload);
+                var result = _client.Bulk<byte[]>(payload);
                 if (!result.Success)
                     InternalLogger.Error("Failed to send log messages to ElasticSearch: status={0} message=\"{1}\"", result.HttpStatusCode, result.OriginalException.Message);
             }
