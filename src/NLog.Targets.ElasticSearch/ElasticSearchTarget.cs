@@ -2,10 +2,15 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Configuration;
+using System.IO;
 using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 using Elasticsearch.Net;
 using Elasticsearch.Net.Connection;
 using Elasticsearch.Net.ConnectionPool;
+using Elasticsearch.Net.Serialization;
+using Newtonsoft.Json;
 using NLog.Common;
 using NLog.Config;
 using NLog.Layouts;
@@ -52,7 +57,7 @@ namespace NLog.Targets.ElasticSearch
             var nodes = connectionStringSettings != null ? connectionStringSettings.ConnectionString.Split(',').Select(url => new Uri(url)) : new[] { new Uri(string.Format("http://{0}:{1}", Host, Port)) };
             var connectionPool = new StaticConnectionPool(nodes);
             var config = new ConnectionConfiguration(connectionPool);
-            _client = new ElasticsearchClient(config);
+            _client = new ElasticsearchClient(config, serializer: new NewtonsoftJsonSerializer());
         }
 
         protected override void Write(AsyncLogEventInfo logEvent)
@@ -101,6 +106,64 @@ namespace NLog.Targets.ElasticSearch
             catch (Exception ex)
             {
                 InternalLogger.Error("Error while sending log messages to ElasticSearch: message=\"{0}\"", ex.Message);
+            }
+        }
+
+        public class NewtonsoftJsonSerializer : IElasticsearchSerializer
+        {
+            public T Deserialize<T>(Stream stream)
+            {
+                if (stream == null)
+                    return default(T);
+
+                using (var ms = new MemoryStream())
+                {
+                    stream.CopyTo(ms);
+                    byte[] buffer = ms.ToArray();
+                    if (buffer.Length <= 1)
+                        return default(T);
+                    return JsonConvert.DeserializeObject<T>(Encoding.UTF8.GetString(buffer));
+                }
+            }
+
+            public System.Threading.Tasks.Task<T> DeserializeAsync<T>(System.IO.Stream stream)
+            {
+                return new Task<T>(() => Deserialize<T>(stream));
+            }
+
+            const int BUFFER_SIZE = 1024;
+
+
+            public byte[] Serialize(object data, SerializationFormatting formatting = SerializationFormatting.Indented)
+            {
+                return
+                    Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(data,
+                        formatting == SerializationFormatting.Indented ? Formatting.Indented : Formatting.None));
+            }
+
+            public string Stringify(object valueType)
+            {
+                return ElasticsearchDefaultSerializer.DefaultStringify(valueType);
+            }
+
+            public static string DefaultStringify(object valueType)
+            {
+                var s = valueType as string;
+                if (s != null)
+                    return s;
+                var ss = valueType as string[];
+                if (ss != null)
+                    return string.Join(",", ss);
+
+                var pns = valueType as IEnumerable<object>;
+                if (pns != null)
+                    return string.Join(",", pns);
+
+                var e = valueType as Enum;
+                if (e != null) return KnownEnums.Resolve(e);
+                if (valueType is bool)
+                    return ((bool) valueType) ? "true" : "false";
+                return valueType.ToString();
             }
         }
     }
