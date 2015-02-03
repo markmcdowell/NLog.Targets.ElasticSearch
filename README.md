@@ -12,7 +12,7 @@ See wiki for parameters.
   </extensions>
   <targets>
     <target name="elastic" xsi:type="BufferingWrapper" flushTimeout="5000">
-  	  <target xsi:type="ElasticSearch" index="logstash-${shortdate}"/>
+  	  <target xsi:type="ElasticSearch"/>
     </target>
   </targets>
   <rules>
