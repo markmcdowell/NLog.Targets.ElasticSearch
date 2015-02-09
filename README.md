@@ -1,7 +1,7 @@
 NLog.Targets.ElasticSearch 
 ==========================
 
-<img src="https://ci.appveyor.com/api/projects/status/53pvt1ao61hd3ym2/branch/master?retina=true" alt="https://ci.appveyor.com/project/markmcdowell/nlog-targets-elasticsearch"/>
+<img src="https://ci.appveyor.com/api/projects/status/53pvt1ao61hd3ym2/branch/master?retina=true" alt="Build Status"/>
 
 The Elasticsearch target works best with the BufferingWrapper target applied. By default the target assumes an Elasticsearch node is running on the localhost on port 9200.
 
