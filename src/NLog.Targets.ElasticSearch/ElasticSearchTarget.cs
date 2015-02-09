@@ -76,13 +76,17 @@ namespace NLog.Targets.ElasticSearch
                 document.Add("@timestamp", logEvent.TimeStamp);
                 document.Add("level", logEvent.Level.Name);
                 if (logEvent.Exception != null)
+                {
                     document.Add("exception", logEvent.Exception.ToString());
+                }
                 document.Add("message", Layout.Render(logEvent));
                 foreach (var field in Fields)
                 {
                     var renderedField = field.Layout.Render(logEvent);
                     if (!string.IsNullOrWhiteSpace(renderedField))
-                        document[field.Name] = renderedField;
+                    {
+                        document[field.Name] = this.ConvertToActualType(renderedField);
+                    }
                 }
 
                 var index = Index.Render(logEvent).ToLowerInvariant();
@@ -102,6 +106,45 @@ namespace NLog.Targets.ElasticSearch
             {
                 InternalLogger.Error("Error while sending log messages to ElasticSearch: message=\"{0}\"", ex.Message);
             }
+        }
+
+        /// <summary>
+        /// Attempts to cast the renderedfield to one of the <a href="http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/mapping-core-types.html">core types of ElasticSearch</a>. 
+        /// </summary>
+        /// <param name="renderedField">The rendered field</param>
+        /// <returns>The rendered field as int, double, bool, date, NULL or string of all else fails</returns>
+        private object ConvertToActualType(string renderedField)
+        {
+            int intValue;
+            var isInt = int.TryParse(renderedField, out intValue);
+            if (isInt)
+            {
+                return intValue;
+            }
+
+            double doubleValue;
+            var isDouble = double.TryParse(renderedField, out doubleValue);
+            if (isDouble)
+            {
+                return doubleValue;
+            }
+
+
+            bool boolValue;
+            var isBool = bool.TryParse(renderedField, out boolValue);
+            if (isBool)
+            {
+                return boolValue;
+            }
+
+            DateTime dateTimeValue;
+            var isDate = DateTime.TryParse(renderedField, out dateTimeValue);
+            if (isDate)
+            {
+                return dateTimeValue;
+            }
+
+            return string.IsNullOrWhiteSpace(renderedField) ? null : renderedField;
         }
     }
 }
