@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Configuration;
 using System.Linq;
 using Elasticsearch.Net;
 using Elasticsearch.Net.Connection;
 using Elasticsearch.Net.ConnectionPool;
+using Elasticsearch.Net.Serialization;
 using NLog.Common;
 using NLog.Config;
 using NLog.Layouts;
@@ -17,12 +17,9 @@ namespace NLog.Targets.ElasticSearch
     {
         private IElasticsearchClient _client;
 
-        public string ConnectionName { get; set; }
+        public string ConnectionStringName { get; set; }
 
-        public string Host { get; set; }
-
-        [DefaultValue(9200)]
-        public int Port { get; set; }
+        public string Uri { get; set; }
 
         public Layout Index { get; set; }
 
@@ -32,10 +29,11 @@ namespace NLog.Targets.ElasticSearch
         [ArrayParameter(typeof(ElasticSearchField), "field")]
         public IList<ElasticSearchField> Fields { get; private set; }
 
+        public IElasticsearchSerializer ElasticsearchSerializer { get; set; }
+
         public ElasticSearchTarget()
         {
-            Port = 9200;
-            Host = "localhost";
+            Uri = "http://localhost:9200";
             DocumentType = "logevent";
             Index = "logstash-${date:format=yyyy.MM.dd}";
             Fields = new List<ElasticSearchField>();
@@ -46,13 +44,14 @@ namespace NLog.Targets.ElasticSearch
             base.InitializeTarget();
 
             ConnectionStringSettings connectionStringSettings = null;
-            if (!string.IsNullOrEmpty(ConnectionName))
-                connectionStringSettings = ConfigurationManager.ConnectionStrings[ConnectionName];
+            if (!string.IsNullOrEmpty(ConnectionStringName))
+                connectionStringSettings = ConfigurationManager.ConnectionStrings[ConnectionStringName];
 
-            var nodes = connectionStringSettings != null ? connectionStringSettings.ConnectionString.Split(',').Select(url => new Uri(url)) : new[] { new Uri(string.Format("http://{0}:{1}", Host, Port)) };
+            var uri = connectionStringSettings == null ? Uri : connectionStringSettings.ConnectionString;
+            var nodes = uri.Split(',').Select(url => new Uri(url));
             var connectionPool = new StaticConnectionPool(nodes);
             var config = new ConnectionConfiguration(connectionPool);
-            _client = new ElasticsearchClient(config);
+            _client = new ElasticsearchClient(config, serializer:ElasticsearchSerializer);
         }
 
         protected override void Write(AsyncLogEventInfo logEvent)
@@ -82,7 +81,7 @@ namespace NLog.Targets.ElasticSearch
                 {
                     var renderedField = field.Layout.Render(logEvent);
                     if (!string.IsNullOrWhiteSpace(renderedField))
-                        document[field.Name] = renderedField;
+                        document[field.Name] = renderedField.ToSystemType(field.LayoutType);
                 }
 
                 var index = Index.Render(logEvent).ToLowerInvariant();
