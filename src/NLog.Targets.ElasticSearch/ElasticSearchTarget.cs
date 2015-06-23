@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Linq;
@@ -43,15 +44,28 @@ namespace NLog.Targets.ElasticSearch
         {
             base.InitializeTarget();
 
-            ConnectionStringSettings connectionStringSettings = null;
-            if (!string.IsNullOrEmpty(ConnectionStringName))
-                connectionStringSettings = ConfigurationManager.ConnectionStrings[ConnectionStringName];
-
-            var uri = connectionStringSettings == null ? Uri : connectionStringSettings.ConnectionString;
+            var uri = GetConnectionString(ConnectionStringName) ?? Uri;
             var nodes = uri.Split(',').Select(url => new Uri(url));
             var connectionPool = new StaticConnectionPool(nodes);
             var config = new ConnectionConfiguration(connectionPool);
             _client = new ElasticsearchClient(config, serializer:ElasticsearchSerializer);
+        }
+
+        private string GetConnectionString(string name)
+        {
+            string value = GetEnvironmentVariable(name);
+            if (!String.IsNullOrEmpty(value))
+                return value;
+
+            var connectionString = ConfigurationManager.ConnectionStrings[name];
+            return connectionString != null ? connectionString.ConnectionString : null;
+        }
+
+        private string GetEnvironmentVariable(string name) {
+            if (String.IsNullOrEmpty(name))
+                return null;
+
+            return Environment.GetEnvironmentVariable(name);
         }
 
         protected override void Write(AsyncLogEventInfo logEvent)
