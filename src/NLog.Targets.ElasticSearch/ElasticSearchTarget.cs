@@ -24,6 +24,8 @@ namespace NLog.Targets.ElasticSearch
 
         public Layout Index { get; set; }
 
+        public bool IncludeAllProperties { get; set; }
+
         [RequiredParameter]
         public Layout DocumentType { get; set; }
 
@@ -96,6 +98,17 @@ namespace NLog.Targets.ElasticSearch
                     var renderedField = field.Layout.Render(logEvent);
                     if (!string.IsNullOrWhiteSpace(renderedField))
                         document[field.Name] = renderedField.ToSystemType(field.LayoutType);
+                }
+
+                if (IncludeAllProperties)
+                {
+                    foreach (var p in logEvent.Properties)
+                    {
+                        if (document.ContainsKey(p.Key.ToString()))
+                            continue;
+
+                        document[p.Key.ToString()] = p.Value;
+                    }
                 }
 
                 var index = Index.Render(logEvent).ToLowerInvariant();
