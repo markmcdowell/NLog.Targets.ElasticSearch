@@ -17,6 +17,7 @@ namespace NLog.Targets.ElasticSearch
     public class ElasticSearchTarget : TargetWithLayout
     {
         private IElasticsearchClient _client;
+        private List<string> _excludedProperties = new List<string>(new[] { "CallerMemberName", "CallerFilePath", "CallerLineNumber", "MachineName", "ThreadId" }); 
 
         public string ConnectionStringName { get; set; }
 
@@ -25,6 +26,7 @@ namespace NLog.Targets.ElasticSearch
         public Layout Index { get; set; }
 
         public bool IncludeAllProperties { get; set; }
+        public string ExcludedProperties { get; set; }
 
         [RequiredParameter]
         public Layout DocumentType { get; set; }
@@ -51,6 +53,9 @@ namespace NLog.Targets.ElasticSearch
             var connectionPool = new StaticConnectionPool(nodes);
             var config = new ConnectionConfiguration(connectionPool);
             _client = new ElasticsearchClient(config, serializer:ElasticsearchSerializer);
+
+            if (!String.IsNullOrEmpty(ExcludedProperties))
+                _excludedProperties = new List<string>(ExcludedProperties.Split(new [] { ',' }, StringSplitOptions.RemoveEmptyEntries));
         }
 
         private string GetConnectionString(string name)
@@ -102,7 +107,7 @@ namespace NLog.Targets.ElasticSearch
 
                 if (IncludeAllProperties)
                 {
-                    foreach (var p in logEvent.Properties)
+                    foreach (var p in logEvent.Properties.Where(p => !_excludedProperties.Contains(p.Key)))
                     {
                         if (document.ContainsKey(p.Key.ToString()))
                             continue;
