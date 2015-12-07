@@ -29,7 +29,7 @@ namespace NLog.Targets.ElasticSearch
         public bool IncludeAllProperties { get; set; }
         public string ExcludedProperties { get; set; }
 
-        public string ConnectionConfigurationFactory { get; set; }
+        public Type ConnectionConfigurationFactory { get; set; }
 
         [RequiredParameter]
         public Layout DocumentType { get; set; }
@@ -57,20 +57,11 @@ namespace NLog.Targets.ElasticSearch
 
             IElasticSearchConnectionConfigurationFactory connectionConfigurationFactory = null;
 
-            if ( !string.IsNullOrEmpty( ConnectionConfigurationFactory ) )
+            if (ConnectionConfigurationFactory != null)
             {
-                var type = Assembly.GetEntryAssembly().GetType( ConnectionConfigurationFactory );
-                if ( type != null )
-                {
-                    var instance = Activator.CreateInstance( type );
-
-                    if ( instance is IElasticSearchConnectionConfigurationFactory )
-                    {
-                        connectionConfigurationFactory = instance as IElasticSearchConnectionConfigurationFactory;
-                    }
-                }
+                connectionConfigurationFactory = ConnectionConfigurationFactory.AsConnectionConfigurationFActory();
             }
-            
+
             var config = connectionConfigurationFactory == null
                 ? new ConnectionConfiguration(connectionPool)
                 : connectionConfigurationFactory.Create(connectionPool);
