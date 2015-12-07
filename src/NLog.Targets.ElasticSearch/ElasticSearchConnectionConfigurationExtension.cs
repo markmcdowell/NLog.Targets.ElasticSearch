@@ -8,7 +8,7 @@ namespace NLog.Targets.ElasticSearch
 {
     public static class ElasticSearchConnectionConfigurationExtension
     {
-        public static IElasticSearchConnectionConfigurationFactory AsConnectionConfigurationFActory(this Type type)
+        public static IElasticSearchConnectionConfigurationFactory AsElasticSearchConnectionConfigurationFactory(this Type type)
         {
             var instance = Activator.CreateInstance(type);
 

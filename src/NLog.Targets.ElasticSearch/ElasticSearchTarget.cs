@@ -55,16 +55,17 @@ namespace NLog.Targets.ElasticSearch
             var nodes = uri.Split(',').Select(url => new Uri(url));
             var connectionPool = new StaticConnectionPool(nodes);
 
-            IElasticSearchConnectionConfigurationFactory connectionConfigurationFactory = null;
+            IElasticSearchConnectionConfigurationFactory elasticSearchConnectionConfigurationFactory = null;
 
             if (ConnectionConfigurationFactory != null)
             {
-                connectionConfigurationFactory = ConnectionConfigurationFactory.AsConnectionConfigurationFActory();
+                elasticSearchConnectionConfigurationFactory =
+                    ConnectionConfigurationFactory.AsElasticSearchConnectionConfigurationFactory();
             }
 
-            var config = connectionConfigurationFactory == null
+            var config = elasticSearchConnectionConfigurationFactory == null
                 ? new ConnectionConfiguration(connectionPool)
-                : connectionConfigurationFactory.Create(connectionPool);
+                : elasticSearchConnectionConfigurationFactory.Create(connectionPool);
 
             _client = new ElasticsearchClient(config, serializer:ElasticsearchSerializer);
 
