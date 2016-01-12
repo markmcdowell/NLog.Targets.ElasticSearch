@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Linq;
@@ -35,6 +34,12 @@ namespace NLog.Targets.ElasticSearch
         public IList<ElasticSearchField> Fields { get; private set; }
 
         public IElasticsearchSerializer ElasticsearchSerializer { get; set; }
+
+        /// <summary>
+        /// Defines if exception will be rethrown.
+        /// Set it to true if ElasticSearchTarget target is used within FallbackGroup target (https://github.com/NLog/NLog/wiki/FallbackGroup-target).
+        /// </summary>
+        public bool ThrowExceptions { get; set; }
 
         public ElasticSearchTarget()
         {
@@ -132,6 +137,9 @@ namespace NLog.Targets.ElasticSearch
             catch (Exception ex)
             {
                 InternalLogger.Error("Error while sending log messages to ElasticSearch: message=\"{0}\"", ex.Message);
+                //rethrow exception if required
+                if (ThrowExceptions)
+                    throw;
             }
         }
     }
