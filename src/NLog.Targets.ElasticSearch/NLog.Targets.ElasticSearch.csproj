@@ -40,6 +40,8 @@
     <Reference Include="System.configuration" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ElasticSearchConnectionConfigurationExtension.cs" />
+    <Compile Include="IElasticSearchConnectionConfigurationFactory.cs" />
     <Compile Include="StringExtensions.cs" />
     <Compile Include="ElasticSearchField.cs" />
     <Compile Include="ElasticSearchTarget.cs" />

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Configuration;
 using System.Linq;
+using System.Reflection;
 using Elasticsearch.Net;
 using Elasticsearch.Net.Connection;
 using Elasticsearch.Net.ConnectionPool;
@@ -26,6 +27,8 @@ namespace NLog.Targets.ElasticSearch
 
         public bool IncludeAllProperties { get; set; }
         public string ExcludedProperties { get; set; }
+
+        public Type ConnectionConfigurationFactory { get; set; }
 
         [RequiredParameter]
         public Layout DocumentType { get; set; }
@@ -56,7 +59,19 @@ namespace NLog.Targets.ElasticSearch
             var uri = GetConnectionString(ConnectionStringName) ?? Uri;
             var nodes = uri.Split(',').Select(url => new Uri(url));
             var connectionPool = new StaticConnectionPool(nodes);
-            var config = new ConnectionConfiguration(connectionPool);
+
+            IElasticSearchConnectionConfigurationFactory elasticSearchConnectionConfigurationFactory = null;
+
+            if (ConnectionConfigurationFactory != null)
+            {
+                elasticSearchConnectionConfigurationFactory =
+                    ConnectionConfigurationFactory.AsElasticSearchConnectionConfigurationFactory();
+            }
+
+            var config = elasticSearchConnectionConfigurationFactory == null
+                ? new ConnectionConfiguration(connectionPool)
+                : elasticSearchConnectionConfigurationFactory.Create(connectionPool);
+
             _client = new ElasticsearchClient(config, serializer:ElasticsearchSerializer);
 
             if (!String.IsNullOrEmpty(ExcludedProperties))
