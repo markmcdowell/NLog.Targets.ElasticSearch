@@ -5,9 +5,9 @@ using NLog.Layouts;
 namespace NLog.Targets.ElasticSearch
 {
     [NLogConfigurationItem]
-    public class ElasticSearchField
+    public class Field
     {
-        public ElasticSearchField()
+        public Field()
         {
             LayoutType = typeof (string);
         }

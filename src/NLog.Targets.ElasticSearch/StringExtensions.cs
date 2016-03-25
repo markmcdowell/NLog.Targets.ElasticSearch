@@ -1,8 +1,9 @@
 ﻿using System;
+using System.Configuration;
 
 namespace NLog.Targets.ElasticSearch
 {
-    public static class StringExtensions
+    internal static class StringExtensions
     {
         public static object ToSystemType(this string field, Type type)
         {
@@ -21,6 +22,22 @@ namespace NLog.Targets.ElasticSearch
                 default:
                     return field;
             }
+        }
+
+        public static string GetConnectionString(this string name)
+        {
+            var value = GetEnvironmentVariable(name);
+            if (!string.IsNullOrEmpty(value))
+                return value;
+
+            var connectionString = ConfigurationManager.ConnectionStrings[name];
+
+            return connectionString != null ? connectionString.ConnectionString : null;
+        }
+
+        private static string GetEnvironmentVariable(this string name)
+        {
+            return string.IsNullOrEmpty(name) ? null : Environment.GetEnvironmentVariable(name);
         }
     }
 }

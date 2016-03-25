@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Configuration;
 using System.Linq;
 using Elasticsearch.Net;
 using Elasticsearch.Net.Connection;
@@ -13,71 +12,83 @@ using NLog.Layouts;
 namespace NLog.Targets.ElasticSearch
 {
     [Target("ElasticSearch")]
-    public class ElasticSearchTarget : TargetWithLayout
+    public class ElasticSearchTarget : TargetWithLayout, IElasticSearchTarget
     {
         private IElasticsearchClient _client;
-        private List<string> _excludedProperties = new List<string>(new[] { "CallerMemberName", "CallerFilePath", "CallerLineNumber", "MachineName", "ThreadId" }); 
+        private List<string> _excludedProperties = new List<string>(new[] { "CallerMemberName", "CallerFilePath", "CallerLineNumber", "MachineName", "ThreadId" });
 
+        /// <summary>
+        /// Gets or sets a connection string name to retrieve the Uri from.
+        /// 
+        /// Use as an alternative to Uri
+        /// </summary>
         public string ConnectionStringName { get; set; }
 
+        /// <summary>
+        /// Gets or sets the elasticsearch uri, can be multiple comma separated.
+        /// </summary>
         public string Uri { get; set; }
 
+        /// <summary>
+        /// Gets or sets the name of the elasticsearch index to write to.
+        /// </summary>
         public Layout Index { get; set; }
 
+        /// <summary>
+        /// Gets or sets whether to include all properties of the log event in the document
+        /// </summary>
         public bool IncludeAllProperties { get; set; }
+
+        /// <summary>
+        /// Gets or sets a comma separated list of excluded properties when setting <see cref="IElasticSearchTarget.IncludeAllProperties"/>
+        /// </summary>
         public string ExcludedProperties { get; set; }
 
+        /// <summary>
+        /// Gets or sets the document type for the elasticsearch index.
+        /// </summary>
         [RequiredParameter]
         public Layout DocumentType { get; set; }
 
-        [ArrayParameter(typeof(ElasticSearchField), "field")]
-        public IList<ElasticSearchField> Fields { get; private set; }
+        /// <summary>
+        /// Gets or sets a list of additional fields to add to the elasticsearch document.
+        /// </summary>
+        [ArrayParameter(typeof(Field), "field")]
+        public IList<Field> Fields { get; set; }
 
+        /// <summary>
+        /// Gets or sets an alertnative serializer for the elasticsearch client to use.
+        /// </summary>
         public IElasticsearchSerializer ElasticsearchSerializer { get; set; }
 
         /// <summary>
-        /// Defines if exception will be rethrown.
+        /// Gets or sets if exceptions will be rethrown.
+        /// 
         /// Set it to true if ElasticSearchTarget target is used within FallbackGroup target (https://github.com/NLog/NLog/wiki/FallbackGroup-target).
         /// </summary>
         public bool ThrowExceptions { get; set; }
 
         public ElasticSearchTarget()
         {
+            Name = "ElasticSearch";
             Uri = "http://localhost:9200";
             DocumentType = "logevent";
             Index = "logstash-${date:format=yyyy.MM.dd}";
-            Fields = new List<ElasticSearchField>();
+            Fields = new List<Field>();
         }
 
         protected override void InitializeTarget()
         {
             base.InitializeTarget();
 
-            var uri = GetConnectionString(ConnectionStringName) ?? Uri;
-            var nodes = uri.Split(',').Select(url => new Uri(url));
+            var uri = ConnectionStringName.GetConnectionString() ?? Uri;
+            var nodes = uri.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).Select(url => new Uri(url));
             var connectionPool = new StaticConnectionPool(nodes);
             var config = new ConnectionConfiguration(connectionPool);
             _client = new ElasticsearchClient(config, serializer:ElasticsearchSerializer);
 
-            if (!String.IsNullOrEmpty(ExcludedProperties))
-                _excludedProperties = new List<string>(ExcludedProperties.Split(new [] { ',' }, StringSplitOptions.RemoveEmptyEntries));
-        }
-
-        private string GetConnectionString(string name)
-        {
-            string value = GetEnvironmentVariable(name);
-            if (!String.IsNullOrEmpty(value))
-                return value;
-
-            var connectionString = ConfigurationManager.ConnectionStrings[name];
-            return connectionString != null ? connectionString.ConnectionString : null;
-        }
-
-        private string GetEnvironmentVariable(string name) {
-            if (String.IsNullOrEmpty(name))
-                return null;
-
-            return Environment.GetEnvironmentVariable(name);
+            if (!string.IsNullOrEmpty(ExcludedProperties))
+                _excludedProperties = ExcludedProperties.Split(new [] { ',' }, StringSplitOptions.RemoveEmptyEntries).ToList();
         }
 
         protected override void Write(AsyncLogEventInfo logEvent)
@@ -92,17 +103,41 @@ namespace NLog.Targets.ElasticSearch
 
         private void SendBatch(IEnumerable<AsyncLogEventInfo> events)
         {
-            var logEvents = events.Select(e => e.LogEvent);
+            try
+            {
+                var logEvents = events.Select(e => e.LogEvent);
+
+                var payload = FormPayload(logEvents);
+
+                var result = _client.Bulk<byte[]>(payload);
+                if (!result.Success)
+                    InternalLogger.Error("Failed to send log messages to elasticsearch: status={0}, message=\"{1}\"", result.HttpStatusCode, result.OriginalException.Message);
+            }
+            catch (Exception ex)
+            {
+                InternalLogger.Error("Error while sending log messages to elasticsearch: message=\"{0}\"", ex.Message);
+                
+                if (ThrowExceptions)
+                    throw;
+            }
+        }
+
+        private object FormPayload(IEnumerable<LogEventInfo> logEvents)
+        {
             var payload = new List<object>();
 
             foreach (var logEvent in logEvents)
             {
-                var document = new Dictionary<string, object>();
-                document.Add("@timestamp", logEvent.TimeStamp);
-                document.Add("level", logEvent.Level.Name);
+                var document = new Dictionary<string, object>
+                {
+                    {"@timestamp", logEvent.TimeStamp},
+                    {"level", logEvent.Level.Name},
+                    {"message", Layout.Render(logEvent)}
+                };
+
                 if (logEvent.Exception != null)
-                    document.Add("exception", logEvent.Exception.ToString());
-                document.Add("message", Layout.Render(logEvent));
+                    document.Add("exception", logEvent.Exception);
+
                 foreach (var field in Fields)
                 {
                     var renderedField = field.Layout.Render(logEvent);
@@ -112,11 +147,9 @@ namespace NLog.Targets.ElasticSearch
 
                 if (IncludeAllProperties)
                 {
-                    foreach (var p in logEvent.Properties.Where(p => !_excludedProperties.Contains(p.Key)))
+                    foreach (var p in logEvent.Properties.Where(p => !_excludedProperties.Contains(p.Key.ToString()))
+                                                         .Where(p => !document.ContainsKey(p.Key.ToString())))
                     {
-                        if (document.ContainsKey(p.Key.ToString()))
-                            continue;
-
                         document[p.Key.ToString()] = p.Value;
                     }
                 }
@@ -128,19 +161,7 @@ namespace NLog.Targets.ElasticSearch
                 payload.Add(document);
             }
 
-            try
-            {
-                var result = _client.Bulk<byte[]>(payload);
-                if (!result.Success)
-                    InternalLogger.Error("Failed to send log messages to ElasticSearch: status={0} message=\"{1}\"", result.HttpStatusCode, result.OriginalException.Message);
-            }
-            catch (Exception ex)
-            {
-                InternalLogger.Error("Error while sending log messages to ElasticSearch: message=\"{0}\"", ex.Message);
-                //rethrow exception if required
-                if (ThrowExceptions)
-                    throw;
-            }
+            return payload;
         }
     }
 }
