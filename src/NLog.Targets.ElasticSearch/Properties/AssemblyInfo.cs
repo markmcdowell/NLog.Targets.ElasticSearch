@@ -9,7 +9,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("ReactiveMarkets")]
 [assembly: AssemblyProduct("NLog.Targets.ElasticSearch")]
-[assembly: AssemblyCopyright("Copyright © ReactiveMarkets 2014")]
+[assembly: AssemblyCopyright("Copyright © ReactiveMarkets 2016")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

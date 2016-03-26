@@ -42,7 +42,7 @@ namespace NLog.Targets.ElasticSearch.Tests
 
             var logger = LogManager.GetLogger("Example");
 
-            var exception = new ArgumentNullException("argument");
+            var exception = new ArgumentException("Some random error message");
 
             logger.Error(exception, "An exception occured");
 
@@ -52,6 +52,8 @@ namespace NLog.Targets.ElasticSearch.Tests
         [Test]
         public void ReadFromConfigTest()
         {
+            Environment.CurrentDirectory = TestContext.CurrentContext.TestDirectory;
+
             LogManager.Configuration = new XmlLoggingConfiguration("NLog.Targets.ElasticSearch.Tests.dll.config");
 
             var logger = LogManager.GetLogger("Example");

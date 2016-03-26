@@ -22,7 +22,7 @@ namespace NLog.Targets.ElasticSearch
 
         public override string ToString()
         {
-            return string.Format("Name: {0}, LayoutType: {1}, Layout: {2}", Name, LayoutType, Layout);
+            return $"Name: {Name}, LayoutType: {LayoutType}, Layout: {Layout}";
         }
     }
 }

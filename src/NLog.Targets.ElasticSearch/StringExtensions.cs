@@ -32,7 +32,7 @@ namespace NLog.Targets.ElasticSearch
 
             var connectionString = ConfigurationManager.ConnectionStrings[name];
 
-            return connectionString != null ? connectionString.ConnectionString : null;
+            return connectionString?.ConnectionString;
         }
 
         private static string GetEnvironmentVariable(this string name)

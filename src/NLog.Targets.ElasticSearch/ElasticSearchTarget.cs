@@ -2,9 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using Elasticsearch.Net;
-using Elasticsearch.Net.Connection;
-using Elasticsearch.Net.ConnectionPool;
-using Elasticsearch.Net.Serialization;
 using NLog.Common;
 using NLog.Config;
 using NLog.Layouts;
@@ -14,7 +11,7 @@ namespace NLog.Targets.ElasticSearch
     [Target("ElasticSearch")]
     public class ElasticSearchTarget : TargetWithLayout, IElasticSearchTarget
     {
-        private IElasticsearchClient _client;
+        private IElasticLowLevelClient _client;
         private List<string> _excludedProperties = new List<string>(new[] { "CallerMemberName", "CallerFilePath", "CallerLineNumber", "MachineName", "ThreadId" });
 
         /// <summary>
@@ -84,8 +81,10 @@ namespace NLog.Targets.ElasticSearch
             var uri = ConnectionStringName.GetConnectionString() ?? Uri;
             var nodes = uri.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).Select(url => new Uri(url));
             var connectionPool = new StaticConnectionPool(nodes);
-            var config = new ConnectionConfiguration(connectionPool);
-            _client = new ElasticsearchClient(config, serializer:ElasticsearchSerializer);
+            IConnectionConfigurationValues config = new ConnectionConfiguration(connectionPool);
+            if (ElasticsearchSerializer != null)
+                config = new ConnectionConfiguration(connectionPool, _ => ElasticsearchSerializer);
+            _client = new ElasticLowLevelClient(config);
 
             if (!string.IsNullOrEmpty(ExcludedProperties))
                 _excludedProperties = ExcludedProperties.Split(new [] { ',' }, StringSplitOptions.RemoveEmptyEntries).ToList();

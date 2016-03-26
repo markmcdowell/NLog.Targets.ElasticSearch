@@ -4,10 +4,19 @@
     <id>$id$</id>
     <version>$version$</version>
     <authors>$author$</authors>
-    <description>$description$</description>
+    <summary>NLog target for elasticsearch</summary>
+    <description>An NLog target that utilises the elasticsearch low level client.</description>
     <language>en-US</language>
-    <tags>NLog ElasticSearch</tags>
+    <tags>NLog logging target log elasticsearch elastic search</tags>
     <projectUrl>https://github.com/ReactiveMarkets/NLog.Targets.ElasticSearch</projectUrl>
     <licenseUrl>https://raw.githubusercontent.com/ReactiveMarkets/NLog.Targets.ElasticSearch/master/LICENSE</licenseUrl>
+    <releaseNotes>
+      2.0
+      * .Net 4 dropped
+      * Elasticsearch.net 2.0 added as a dependency      
+    </releaseNotes>
   </metadata>
+  <files>
+    <file src="bin\$configuration$\$id$.dll" target="lib\net45" />
+  </files>
 </package>

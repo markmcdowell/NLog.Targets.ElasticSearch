@@ -1,5 +1,5 @@
 ﻿using System.Collections.Generic;
-using Elasticsearch.Net.Serialization;
+using Elasticsearch.Net;
 using NLog.Layouts;
 
 namespace NLog.Targets.ElasticSearch
