@@ -109,8 +109,12 @@ namespace NLog.Targets.ElasticSearch
                 var payload = FormPayload(logEvents);
 
                 var result = _client.Bulk<byte[]>(payload);
-                if (!result.Success)
-                    InternalLogger.Error("Failed to send log messages to elasticsearch: status={0}, message=\"{1}\"", result.HttpStatusCode, result.OriginalException.Message);
+
+                if (result.Success) return;
+
+                InternalLogger.Error("Failed to send log messages to elasticsearch: status={0}, message=\"{1}\"",
+                    result.HttpStatusCode, result.OriginalException?.Message ?? "No error message. Enable Trace logging for more information.");
+                InternalLogger.Trace("Failed to send log messages to elasticsearch: result={0}", result);
             }
             catch (Exception ex)
             {
