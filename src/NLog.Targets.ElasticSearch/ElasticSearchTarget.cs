@@ -97,7 +97,52 @@ namespace NLog.Targets.ElasticSearch
 
         protected override void Write(AsyncLogEventInfo[] logEvents)
         {
-            SendBatch(logEvents);
+            SendBatch(EnsureIndicesExist(logEvents));
+        }
+
+        private IEnumerable<AsyncLogEventInfo> EnsureIndicesExist(IEnumerable<AsyncLogEventInfo> events)
+		{
+            foreach (var logEvent in events)
+			{
+                if (CreateIndex(logEvent.LogEvent))
+				{
+                    yield return logEvent;
+                }
+            }
+        }
+
+        private bool CreateIndex(LogEventInfo logEvent)
+		{
+            try
+			{
+                var indexName = Index.Render(logEvent);
+                if (_client.IndicesExists<VoidResponse>(indexName).HttpStatusCode.GetValueOrDefault(0) != (int)System.Net.HttpStatusCode.NotFound)
+				{
+                    InternalLogger.Trace("Index '{0}' already exists, no need to create it", indexName);
+                    return true;
+                }
+
+                var result = _client.IndicesCreatePost<VoidResponse>(indexName, null);
+                if (!result.Success)
+				{
+                    InternalLogger.Error("Failed to create index '{0}' on elasticsearch: status={1}, message=\"{2}\"",
+                        indexName, result.HttpStatusCode, result.OriginalException?.Message ?? "No error message. Enable Trace logging for more information.");
+                    return false;
+                }
+
+                InternalLogger.Trace("Index '{0}' successfully created", indexName);
+                return true;
+            }
+			catch (Exception ex)
+			{
+                InternalLogger.Error("Unable to create index on elasticsearch server: message=\"{0}\"", ex.Message);
+
+                if (ThrowExceptions) {
+                    throw;
+                }
+
+                return false;
+            }
         }
 
         private void SendBatch(IEnumerable<AsyncLogEventInfo> events)
