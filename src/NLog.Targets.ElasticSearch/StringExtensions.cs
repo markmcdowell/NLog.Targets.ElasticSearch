@@ -1,5 +1,7 @@
 ﻿using System;
+#if NET45
 using System.Configuration;
+#endif
 
 namespace NLog.Targets.ElasticSearch
 {
@@ -29,10 +31,13 @@ namespace NLog.Targets.ElasticSearch
             var value = GetEnvironmentVariable(name);
             if (!string.IsNullOrEmpty(value))
                 return value;
-
+#if NET45
             var connectionString = ConfigurationManager.ConnectionStrings[name];
 
             return connectionString?.ConnectionString;
+#else
+            return null;
+#endif
         }
 
         private static string GetEnvironmentVariable(this string name)
