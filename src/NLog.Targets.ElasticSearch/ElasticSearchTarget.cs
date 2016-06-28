@@ -5,6 +5,8 @@ using Elasticsearch.Net;
 using NLog.Common;
 using NLog.Config;
 using NLog.Layouts;
+using Newtonsoft.Json;
+using System.Dynamic;
 
 namespace NLog.Targets.ElasticSearch
 {
@@ -115,6 +117,10 @@ namespace NLog.Targets.ElasticSearch
                 InternalLogger.Error("Failed to send log messages to elasticsearch: status={0}, message=\"{1}\"",
                     result.HttpStatusCode, result.OriginalException?.Message ?? "No error message. Enable Trace logging for more information.");
                 InternalLogger.Trace("Failed to send log messages to elasticsearch: result={0}", result);
+
+                //rethow exception for fallbackgroup setup.
+                if (result.OriginalException != null)
+                    throw result.OriginalException;
             }
             catch (Exception ex)
             {
@@ -138,8 +144,11 @@ namespace NLog.Targets.ElasticSearch
                     {"message", Layout.Render(logEvent)}
                 };
 
+                //see : https://github.com/elastic/elasticsearch-net/issues/2052
+                var ex = JsonConvert.DeserializeObject<ExpandoObject>(JsonConvert.SerializeObject(logEvent.Exception));
+
                 if (logEvent.Exception != null)
-                    document.Add("exception", logEvent.Exception);
+                    document.Add("exception", ex);
 
                 foreach (var field in Fields)
                 {
