@@ -148,7 +148,7 @@ namespace NLog.Targets.ElasticSearch
                 var ex = JsonConvert.DeserializeObject<ExpandoObject>(JsonConvert.SerializeObject(logEvent.Exception));
 
                 if (logEvent.Exception != null)
-                    document.Add("exception", ex);
+                    document.Add("exception", ReplaceDot(ex));
 
                 foreach (var field in Fields)
                 {
@@ -174,6 +174,27 @@ namespace NLog.Targets.ElasticSearch
             }
 
             return payload;
+        }
+
+        private ExpandoObject ReplaceDot(ExpandoObject obj)
+        {
+            var clone = new ExpandoObject();
+            foreach (var item in obj)
+            {
+                if (item.Value == null) continue;
+
+                if (item.Value.GetType() == typeof(ExpandoObject))
+                    ((IDictionary<string, object>)clone)[item.Key.Replace('.', '_')] 
+                        = ReplaceDot(item.Value as ExpandoObject);
+                else
+                {
+                    if (item.Key.Contains('.'))
+                        ((IDictionary<string, object>)clone)[item.Key.Replace('.', '_')] = item.Value;
+                    else
+                        ((IDictionary<string, object>)clone)[item.Key] = item.Value;
+                }
+            }
+            return clone;
         }
     }
 }
