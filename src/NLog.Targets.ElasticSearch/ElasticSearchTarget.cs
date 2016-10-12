@@ -148,7 +148,7 @@ namespace NLog.Targets.ElasticSearch
                 var ex = JsonConvert.DeserializeObject<ExpandoObject>(JsonConvert.SerializeObject(logEvent.Exception));
 
                 if (logEvent.Exception != null)
-                    document.Add("exception", ex);
+                    document.Add("exception", ex.ReplaceDotInKeys());
 
                 foreach (var field in Fields)
                 {
