@@ -83,9 +83,11 @@ namespace NLog.Targets.ElasticSearch
             var uri = ConnectionStringName.GetConnectionString() ?? Uri;
             var nodes = uri.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).Select(url => new Uri(url));
             var connectionPool = new StaticConnectionPool(nodes);
+
             IConnectionConfigurationValues config = new ConnectionConfiguration(connectionPool);
             if (ElasticsearchSerializer != null)
                 config = new ConnectionConfiguration(connectionPool, _ => ElasticsearchSerializer);
+
             _client = new ElasticLowLevelClient(config);
 
             if (!string.IsNullOrEmpty(ExcludedProperties))
@@ -112,13 +114,13 @@ namespace NLog.Targets.ElasticSearch
 
                 var result = _client.Bulk<byte[]>(payload);
 
-                if (result.Success) return;
+                if (result.Success)
+                    return;
 
                 InternalLogger.Error("Failed to send log messages to elasticsearch: status={0}, message=\"{1}\"",
                     result.HttpStatusCode, result.OriginalException?.Message ?? "No error message. Enable Trace logging for more information.");
                 InternalLogger.Trace("Failed to send log messages to elasticsearch: result={0}", result);
 
-                //rethow exception for fallbackgroup setup.
                 if (result.OriginalException != null)
                     throw result.OriginalException;
             }
@@ -144,11 +146,14 @@ namespace NLog.Targets.ElasticSearch
                     {"message", Layout.Render(logEvent)}
                 };
 
-                //see : https://github.com/elastic/elasticsearch-net/issues/2052
-                var ex = JsonConvert.DeserializeObject<ExpandoObject>(JsonConvert.SerializeObject(logEvent.Exception));
-
                 if (logEvent.Exception != null)
+                {
+                    var jsonString = JsonConvert.SerializeObject(logEvent.Exception);
+
+                    var ex = JsonConvert.DeserializeObject<ExpandoObject>(jsonString);
+
                     document.Add("exception", ex.ReplaceDotInKeys());
+                }
 
                 foreach (var field in Fields)
                 {
