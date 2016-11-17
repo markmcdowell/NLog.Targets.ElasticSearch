@@ -1,0 +1,17 @@
+﻿{
+    "version": "1.0.0-beta01",
+    "dependencies": {
+        "Elasticsearch.Net": "5.0.0-rc1",
+        "Microsoft.Extensions.Configuration": "1.1.0",
+        "Microsoft.Extensions.Configuration.FileExtensions": "1.1.0",
+        "Microsoft.Extensions.Configuration.Json": "1.1.0",
+        "NETStandard.Library": "1.6.1",
+        "Newtonsoft.Json": "9.0.1",
+        "NLog": "5.0.0-beta03"
+    },
+    "frameworks": {
+        "netstandard1.5": {
+            "imports": "dnxcore50"
+        }
+    }
+}

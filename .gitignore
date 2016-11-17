@@ -4,3 +4,6 @@ packages/
 Debug/
 Release/
 *.nupkg
+/src/.vs/config
+/src/NLog.Targets.ElasticSearch.NetStandard/NuGet
+/src/NLog.Targets.ElasticSearch.NetStandard/project.lock.json
