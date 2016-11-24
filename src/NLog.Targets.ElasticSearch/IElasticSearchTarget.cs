@@ -19,6 +19,21 @@ namespace NLog.Targets.ElasticSearch
         string Uri { get; set; }
 
         /// <summary>
+        /// Set it to true if ElasticSearch uses BasicAuth
+        /// </summary>
+        bool RequireAuth { get; set; }
+
+        /// <summary>
+        /// Username for basic auth
+        /// </summary>
+        string Username { get; set; }
+
+        /// <summary>
+        /// Password for basic auth
+        /// </summary>
+        string Password { get; set; }
+
+        /// <summary>
         /// Gets or sets the name of the elasticsearch index to write to.
         /// </summary>
         Layout Index { get; set; }

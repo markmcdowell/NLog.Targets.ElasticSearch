@@ -29,6 +29,21 @@ namespace NLog.Targets.ElasticSearch
         public string Uri { get; set; }
 
         /// <summary>
+        /// Set it to true if ElasticSearch uses BasicAuth
+        /// </summary>
+        public bool RequireAuth { get; set; }
+
+        /// <summary>
+        /// Username for basic auth
+        /// </summary>
+        public string Username { get; set; }
+
+        /// <summary>
+        /// Password for basic auth
+        /// </summary>
+        public string Password { get; set; }
+
+        /// <summary>
         /// Gets or sets the name of the elasticsearch index to write to.
         /// </summary>
         public Layout Index { get; set; }
@@ -84,7 +99,13 @@ namespace NLog.Targets.ElasticSearch
             var nodes = uri.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).Select(url => new Uri(url));
             var connectionPool = new StaticConnectionPool(nodes);
 
-            IConnectionConfigurationValues config = new ConnectionConfiguration(connectionPool);
+            var config = new ConnectionConfiguration(connectionPool);
+
+            if (RequireAuth)
+            {
+                config.BasicAuthentication(Username, Password);
+            }
+
             if (ElasticsearchSerializer != null)
                 config = new ConnectionConfiguration(connectionPool, _ => ElasticsearchSerializer);
 
