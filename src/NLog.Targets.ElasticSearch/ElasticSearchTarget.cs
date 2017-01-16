@@ -42,10 +42,12 @@ namespace NLog.Targets.ElasticSearch
         /// Password for basic auth
         /// </summary>
         public string Password { get; set; }
+
         /// <summary>
         /// Set it to true to disable proxy detection
         /// </summary>
         public bool DisableAutomaticProxyDetection { get; set; }
+
         /// <summary>
         /// Gets or sets the name of the elasticsearch index to write to.
         /// </summary>
@@ -104,23 +106,19 @@ namespace NLog.Targets.ElasticSearch
 
             var config = new ConnectionConfiguration(connectionPool);
 
-            if (RequireAuth)
-            {
-                config.BasicAuthentication(Username, Password);
-            }
-            
-            if (DisableAutomaticProxyDetection)
-            {
-                //20170109, Modif jcb , Désactivation auto du proxy 
-                config.DisableAutomaticProxyDetection();
-            }
             if (ElasticsearchSerializer != null)
                 config = new ConnectionConfiguration(connectionPool, _ => ElasticsearchSerializer);
+
+            if (RequireAuth)
+                config.BasicAuthentication(Username, Password);
+
+            if (DisableAutomaticProxyDetection)
+                config.DisableAutomaticProxyDetection();
 
             _client = new ElasticLowLevelClient(config);
 
             if (!string.IsNullOrEmpty(ExcludedProperties))
-                _excludedProperties = ExcludedProperties.Split(new [] { ',' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+                _excludedProperties = ExcludedProperties.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).ToList();
         }
 
         protected override void Write(AsyncLogEventInfo logEvent)
@@ -156,7 +154,7 @@ namespace NLog.Targets.ElasticSearch
             catch (Exception ex)
             {
                 InternalLogger.Error("Error while sending log messages to elasticsearch: message=\"{0}\"", ex.Message);
-                
+
                 if (ThrowExceptions)
                     throw;
             }

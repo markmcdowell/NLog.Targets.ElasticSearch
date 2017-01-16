@@ -34,6 +34,11 @@ namespace NLog.Targets.ElasticSearch
         string Password { get; set; }
 
         /// <summary>
+        /// Set it to true to disable proxy detection
+        /// </summary>
+        bool DisableAutomaticProxyDetection { get; set; }
+
+        /// <summary>
         /// Gets or sets the name of the elasticsearch index to write to.
         /// </summary>
         Layout Index { get; set; }
