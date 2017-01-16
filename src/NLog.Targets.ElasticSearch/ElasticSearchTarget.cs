@@ -42,7 +42,10 @@ namespace NLog.Targets.ElasticSearch
         /// Password for basic auth
         /// </summary>
         public string Password { get; set; }
-
+        /// <summary>
+        /// Set it to true to disable proxy detection
+        /// </summary>
+        public bool DisableAutomaticProxyDetection { get; set; }
         /// <summary>
         /// Gets or sets the name of the elasticsearch index to write to.
         /// </summary>
@@ -105,7 +108,12 @@ namespace NLog.Targets.ElasticSearch
             {
                 config.BasicAuthentication(Username, Password);
             }
-
+            
+            if (DisableAutomaticProxyDetection)
+            {
+                //20170109, Modif jcb , Désactivation auto du proxy 
+                config.DisableAutomaticProxyDetection();
+            }
             if (ElasticsearchSerializer != null)
                 config = new ConnectionConfiguration(connectionPool, _ => ElasticsearchSerializer);
 
