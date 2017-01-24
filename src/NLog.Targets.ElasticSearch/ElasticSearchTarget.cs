@@ -80,13 +80,6 @@ namespace NLog.Targets.ElasticSearch
         /// </summary>
         public IElasticsearchSerializer ElasticsearchSerializer { get; set; }
 
-        /// <summary>
-        /// Gets or sets if exceptions will be rethrown.
-        /// 
-        /// Set it to true if ElasticSearchTarget target is used within FallbackGroup target (https://github.com/NLog/NLog/wiki/FallbackGroup-target).
-        /// </summary>
-        public bool ThrowExceptions { get; set; }
-
         public ElasticSearchTarget()
         {
             Name = "ElasticSearch";
@@ -141,22 +134,29 @@ namespace NLog.Targets.ElasticSearch
 
                 var result = _client.Bulk<byte[]>(payload);
 
-                if (result.Success)
-                    return;
+                if (!result.Success)
+                {
+                    InternalLogger.Error("Failed to send log messages to elasticsearch: status={0}, message=\"{1}\"",
+                        result.HttpStatusCode, result.OriginalException?.Message ?? "No error message. Enable Trace logging for more information.");
+                    InternalLogger.Trace("Failed to send log messages to elasticsearch: result={0}", result);
 
-                InternalLogger.Error("Failed to send log messages to elasticsearch: status={0}, message=\"{1}\"",
-                    result.HttpStatusCode, result.OriginalException?.Message ?? "No error message. Enable Trace logging for more information.");
-                InternalLogger.Trace("Failed to send log messages to elasticsearch: result={0}", result);
+                    if (result.OriginalException != null)
+                        throw result.OriginalException;
+                }
 
-                if (result.OriginalException != null)
-                    throw result.OriginalException;
+                foreach (var ev in events)
+                {
+                    ev.Continuation(null);
+                }
             }
             catch (Exception ex)
             {
                 InternalLogger.Error("Error while sending log messages to elasticsearch: message=\"{0}\"", ex.Message);
 
-                if (ThrowExceptions)
-                    throw;
+                foreach (var ev in events)
+                {
+                    ev.Continuation(ex);
+                }
             }
         }
 

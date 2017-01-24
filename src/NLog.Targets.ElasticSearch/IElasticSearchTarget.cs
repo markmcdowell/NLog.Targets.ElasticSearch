@@ -67,12 +67,5 @@ namespace NLog.Targets.ElasticSearch
         /// Gets or sets an alertnative serializer for the elasticsearch client to use.
         /// </summary>
         IElasticsearchSerializer ElasticsearchSerializer { get; set; }
-
-        /// <summary>
-        /// Gets or sets if exceptions will be rethrown.
-        /// 
-        /// Set it to true if ElasticSearchTarget target is used within FallbackGroup target (https://github.com/NLog/NLog/wiki/FallbackGroup-target).
-        /// </summary>
-        bool ThrowExceptions { get; set; } 
     }
 }
