@@ -8,11 +8,9 @@ using NLog.Layouts;
 using Newtonsoft.Json;
 using System.Dynamic;
 
-namespace NLog.Targets.ElasticSearch
-{
+namespace NLog.Targets.ElasticSearch {
     [Target("ElasticSearch")]
-    public class ElasticSearchTarget : TargetWithLayout, IElasticSearchTarget
-    {
+    public class ElasticSearchTarget : TargetWithLayout, IElasticSearchTarget {
         private IElasticLowLevelClient _client;
         private List<string> _excludedProperties = new List<string>(new[] { "CallerMemberName", "CallerFilePath", "CallerLineNumber", "MachineName", "ThreadId" });
 
@@ -75,6 +73,8 @@ namespace NLog.Targets.ElasticSearch
         [ArrayParameter(typeof(Field), "field")]
         public IList<Field> Fields { get; set; }
 
+        public string Pipeline { get; set; }
+
         /// <summary>
         /// Gets or sets an alertnative serializer for the elasticsearch client to use.
         /// </summary>
@@ -87,8 +87,7 @@ namespace NLog.Targets.ElasticSearch
         /// </summary>
         public bool ThrowExceptions { get; set; }
 
-        public ElasticSearchTarget()
-        {
+        public ElasticSearchTarget() {
             Name = "ElasticSearch";
             Uri = "http://localhost:9200";
             DocumentType = "logevent";
@@ -96,8 +95,7 @@ namespace NLog.Targets.ElasticSearch
             Fields = new List<Field>();
         }
 
-        protected override void InitializeTarget()
-        {
+        protected override void InitializeTarget() {
             base.InitializeTarget();
 
             var uri = ConnectionStringName.GetConnectionString() ?? Uri;
@@ -116,25 +114,20 @@ namespace NLog.Targets.ElasticSearch
                 config.DisableAutomaticProxyDetection();
 
             _client = new ElasticLowLevelClient(config);
-
             if (!string.IsNullOrEmpty(ExcludedProperties))
                 _excludedProperties = ExcludedProperties.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).ToList();
         }
 
-        protected override void Write(AsyncLogEventInfo logEvent)
-        {
+        protected override void Write(AsyncLogEventInfo logEvent) {
             Write(new[] { logEvent });
         }
 
-        protected override void Write(AsyncLogEventInfo[] logEvents)
-        {
+        protected override void Write(AsyncLogEventInfo[] logEvents) {
             SendBatch(logEvents);
         }
 
-        private void SendBatch(IEnumerable<AsyncLogEventInfo> events)
-        {
-            try
-            {
+        private void SendBatch(IEnumerable<AsyncLogEventInfo> events) {
+            try {
                 var logEvents = events.Select(e => e.LogEvent);
 
                 var payload = FormPayload(logEvents);
@@ -150,9 +143,7 @@ namespace NLog.Targets.ElasticSearch
 
                 if (result.OriginalException != null)
                     throw result.OriginalException;
-            }
-            catch (Exception ex)
-            {
+            } catch (Exception ex) {
                 InternalLogger.Error("Error while sending log messages to elasticsearch: message=\"{0}\"", ex.Message);
 
                 if (ThrowExceptions)
@@ -160,12 +151,10 @@ namespace NLog.Targets.ElasticSearch
             }
         }
 
-        private object FormPayload(IEnumerable<LogEventInfo> logEvents)
-        {
+        private object FormPayload(IEnumerable<LogEventInfo> logEvents) {
             var payload = new List<object>();
 
-            foreach (var logEvent in logEvents)
-            {
+            foreach (var logEvent in logEvents) {
                 var document = new Dictionary<string, object>
                 {
                     {"@timestamp", logEvent.TimeStamp},
@@ -173,8 +162,7 @@ namespace NLog.Targets.ElasticSearch
                     {"message", Layout.Render(logEvent)}
                 };
 
-                if (logEvent.Exception != null)
-                {
+                if (logEvent.Exception != null) {
                     var jsonString = JsonConvert.SerializeObject(logEvent.Exception);
 
                     var ex = JsonConvert.DeserializeObject<ExpandoObject>(jsonString);
@@ -182,18 +170,15 @@ namespace NLog.Targets.ElasticSearch
                     document.Add("exception", ex.ReplaceDotInKeys());
                 }
 
-                foreach (var field in Fields)
-                {
+                foreach (var field in Fields) {
                     var renderedField = field.Layout.Render(logEvent);
                     if (!string.IsNullOrWhiteSpace(renderedField))
                         document[field.Name] = renderedField.ToSystemType(field.LayoutType);
                 }
 
-                if (IncludeAllProperties)
-                {
+                if (IncludeAllProperties) {
                     foreach (var p in logEvent.Properties.Where(p => !_excludedProperties.Contains(p.Key.ToString()))
-                                                         .Where(p => !document.ContainsKey(p.Key.ToString())))
-                    {
+                                                         .Where(p => !document.ContainsKey(p.Key.ToString()))) {
                         document[p.Key.ToString()] = p.Value;
                     }
                 }
@@ -201,7 +186,9 @@ namespace NLog.Targets.ElasticSearch
                 var index = Index.Render(logEvent).ToLowerInvariant();
                 var type = DocumentType.Render(logEvent);
 
-                payload.Add(new { index = new { _index = index, _type = type } });
+                var info = new { _index = index, _type = type, pipeline = Pipeline == null ? "" : Pipeline };
+
+                payload.Add(new { index = info });
                 payload.Add(document);
             }
 
