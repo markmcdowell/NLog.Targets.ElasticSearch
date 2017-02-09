@@ -8,10 +8,10 @@ using NLog.Layouts;
 using Newtonsoft.Json;
 using System.Dynamic;
 
-namespace NLog.Targets.ElasticSearch 
+namespace NLog.Targets.ElasticSearch
 {
     [Target("ElasticSearch")]
-    public class ElasticSearchTarget : TargetWithLayout, IElasticSearchTarget 
+    public class ElasticSearchTarget : TargetWithLayout, IElasticSearchTarget
     {
         private IElasticLowLevelClient _client;
         private List<string> _excludedProperties = new List<string>(new[] { "CallerMemberName", "CallerFilePath", "CallerLineNumber", "MachineName", "ThreadId" });
@@ -89,7 +89,7 @@ namespace NLog.Targets.ElasticSearch
         /// </summary>
         public bool ThrowExceptions { get; set; }
 
-        public ElasticSearchTarget() 
+        public ElasticSearchTarget()
         {
             Name = "ElasticSearch";
             Uri = "http://localhost:9200";
@@ -98,7 +98,7 @@ namespace NLog.Targets.ElasticSearch
             Fields = new List<Field>();
         }
 
-        protected override void InitializeTarget() 
+        protected override void InitializeTarget()
         {
             base.InitializeTarget();
 
@@ -122,19 +122,19 @@ namespace NLog.Targets.ElasticSearch
                 _excludedProperties = ExcludedProperties.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).ToList();
         }
 
-        protected override void Write(AsyncLogEventInfo logEvent) 
+        protected override void Write(AsyncLogEventInfo logEvent)
         {
             Write(new[] { logEvent });
         }
 
-        protected override void Write(AsyncLogEventInfo[] logEvents) 
+        protected override void Write(AsyncLogEventInfo[] logEvents)
         {
             SendBatch(logEvents);
         }
 
-        private void SendBatch(IEnumerable<AsyncLogEventInfo> events) 
+        private void SendBatch(IEnumerable<AsyncLogEventInfo> events)
         {
-            try 
+            try
             {
                 var logEvents = events.Select(e => e.LogEvent);
 
@@ -151,8 +151,8 @@ namespace NLog.Targets.ElasticSearch
 
                 if (result.OriginalException != null)
                     throw result.OriginalException;
-            } 
-            catch (Exception ex) 
+            }
+            catch (Exception ex)
             {
                 InternalLogger.Error("Error while sending log messages to elasticsearch: message=\"{0}\"", ex.Message);
 
@@ -161,11 +161,12 @@ namespace NLog.Targets.ElasticSearch
             }
         }
 
-        private object FormPayload(IEnumerable<LogEventInfo> logEvents) 
+        private object FormPayload(IEnumerable<LogEventInfo> logEvents)
         {
             var payload = new List<object>();
 
-            foreach (var logEvent in logEvents) {
+            foreach (var logEvent in logEvents)
+            {
                 var document = new Dictionary<string, object>
                 {
                     {"@timestamp", logEvent.TimeStamp},
@@ -173,7 +174,7 @@ namespace NLog.Targets.ElasticSearch
                     {"message", Layout.Render(logEvent)}
                 };
 
-                if (logEvent.Exception != null) 
+                if (logEvent.Exception != null)
                 {
                     var jsonString = JsonConvert.SerializeObject(logEvent.Exception);
 
@@ -182,17 +183,18 @@ namespace NLog.Targets.ElasticSearch
                     document.Add("exception", ex.ReplaceDotInKeys());
                 }
 
-                foreach (var field in Fields) 
+                foreach (var field in Fields)
                 {
                     var renderedField = field.Layout.Render(logEvent);
                     if (!string.IsNullOrWhiteSpace(renderedField))
                         document[field.Name] = renderedField.ToSystemType(field.LayoutType);
                 }
 
-                if (IncludeAllProperties) 
+                if (IncludeAllProperties)
                 {
                     foreach (var p in logEvent.Properties.Where(p => !_excludedProperties.Contains(p.Key.ToString()))
-                                                         .Where(p => !document.ContainsKey(p.Key.ToString()))) {
+                                                         .Where(p => !document.ContainsKey(p.Key.ToString())))
+                    {
                         document[p.Key.ToString()] = p.Value;
                     }
                 }
