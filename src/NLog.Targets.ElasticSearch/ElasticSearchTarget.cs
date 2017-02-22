@@ -75,8 +75,6 @@ namespace NLog.Targets.ElasticSearch
         [ArrayParameter(typeof(Field), "field")]
         public IList<Field> Fields { get; set; }
 
-        public string Pipeline { get; set; }
-
         /// <summary>
         /// Gets or sets an alertnative serializer for the elasticsearch client to use.
         /// </summary>
@@ -111,6 +109,7 @@ namespace NLog.Targets.ElasticSearch
                 config.DisableAutomaticProxyDetection();
 
             _client = new ElasticLowLevelClient(config);
+
             if (!string.IsNullOrEmpty(ExcludedProperties))
                 _excludedProperties = ExcludedProperties.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).ToList();
         }
@@ -202,9 +201,7 @@ namespace NLog.Targets.ElasticSearch
                 var index = Index.Render(logEvent).ToLowerInvariant();
                 var type = DocumentType.Render(logEvent);
 
-                var info = new { _index = index, _type = type, pipeline = Pipeline ?? "" };
-
-                payload.Add(new { index = info });
+                payload.Add(new { index = new { _index = index, _type = type } });
                 payload.Add(document);
             }
 
