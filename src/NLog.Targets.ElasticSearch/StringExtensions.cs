@@ -1,5 +1,10 @@
 ﻿using System;
+#if !NETSTANDARD
 using System.Configuration;
+#else
+using Microsoft.Extensions.Configuration;
+using System.IO;
+#endif
 
 namespace NLog.Targets.ElasticSearch
 {
@@ -30,9 +35,17 @@ namespace NLog.Targets.ElasticSearch
             if (!string.IsNullOrEmpty(value))
                 return value;
 
+#if !NETSTANDARD
             var connectionString = ConfigurationManager.ConnectionStrings[name];
-
             return connectionString?.ConnectionString;
+#else
+            var builder = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+
+            var configuration = builder.Build();
+            return configuration[name];
+#endif
         }
 
         private static string GetEnvironmentVariable(this string name)
