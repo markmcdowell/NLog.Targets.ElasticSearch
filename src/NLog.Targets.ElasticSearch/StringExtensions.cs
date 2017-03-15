@@ -1,5 +1,5 @@
 ﻿using System;
-#if NET452
+#if NET45
 using System.Configuration;
 #else
 using System.IO;
@@ -35,7 +35,7 @@ namespace NLog.Targets.ElasticSearch
             if (!string.IsNullOrEmpty(value))
                 return value;
 
-#if NET452
+#if NET45
             var connectionString = ConfigurationManager.ConnectionStrings[name];
             return connectionString?.ConnectionString;
 #else
