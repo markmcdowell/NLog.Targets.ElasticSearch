@@ -1,5 +1,10 @@
 ﻿using System;
+#if NET452
 using System.Configuration;
+#else
+using System.IO;
+using Microsoft.Extensions.Configuration;
+#endif
 
 namespace NLog.Targets.ElasticSearch
 {
@@ -30,9 +35,18 @@ namespace NLog.Targets.ElasticSearch
             if (!string.IsNullOrEmpty(value))
                 return value;
 
+#if NET452
             var connectionString = ConfigurationManager.ConnectionStrings[name];
-
             return connectionString?.ConnectionString;
+#else
+            var builder = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("appsettings.json", true, true);
+
+            var configuration = builder.Build();
+
+            return configuration.GetConnectionString(name);
+#endif
         }
 
         private static string GetEnvironmentVariable(this string name)
