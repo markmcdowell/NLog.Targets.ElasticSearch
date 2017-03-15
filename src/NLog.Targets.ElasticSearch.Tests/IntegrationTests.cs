@@ -1,13 +1,12 @@
 ﻿using System;
 using NLog.Config;
-using NUnit.Framework;
+using Xunit;
 
 namespace NLog.Targets.ElasticSearch.Tests
 {
-    [TestFixture, Explicit]
     public class IntegrationTests
     {
-        [Test]
+        [Fact(Skip ="Integration")]
         public void SimpleLogTest()
         {
             var elasticTarget = new ElasticSearchTarget();
@@ -27,7 +26,7 @@ namespace NLog.Targets.ElasticSearch.Tests
             LogManager.Flush();
         }
 
-        [Test]
+        [Fact(Skip = "Integration")]
         public void ExceptionTest()
         {
             var elasticTarget = new ElasticSearchTarget();
@@ -49,11 +48,9 @@ namespace NLog.Targets.ElasticSearch.Tests
             LogManager.Flush();
         }
 
-        [Test]
+        [Fact(Skip = "Integration")]
         public void ReadFromConfigTest()
         {
-            Environment.CurrentDirectory = TestContext.CurrentContext.TestDirectory;
-
             LogManager.Configuration = new XmlLoggingConfiguration("NLog.Targets.ElasticSearch.Tests.dll.config");
 
             var logger = LogManager.GetLogger("Example");

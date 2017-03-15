@@ -26,7 +26,7 @@ namespace NLog.Targets.ElasticSearch
         /// <summary>
         /// Gets or sets the elasticsearch uri, can be multiple comma separated.
         /// </summary>
-        public string Uri { get; set; }
+        public string Uri { get; set; } = "http://localhost:9200";
 
         /// <summary>
         /// Set it to true if ElasticSearch uses BasicAuth
@@ -51,7 +51,7 @@ namespace NLog.Targets.ElasticSearch
         /// <summary>
         /// Gets or sets the name of the elasticsearch index to write to.
         /// </summary>
-        public Layout Index { get; set; }
+        public Layout Index { get; set; } = "logstash-${date:format=yyyy.MM.dd}";
 
         /// <summary>
         /// Gets or sets whether to include all properties of the log event in the document
@@ -67,26 +67,29 @@ namespace NLog.Targets.ElasticSearch
         /// Gets or sets the document type for the elasticsearch index.
         /// </summary>
         [RequiredParameter]
-        public Layout DocumentType { get; set; }
+        public Layout DocumentType { get; set; } = "logevent";
 
         /// <summary>
         /// Gets or sets a list of additional fields to add to the elasticsearch document.
         /// </summary>
         [ArrayParameter(typeof(Field), "field")]
-        public IList<Field> Fields { get; set; }
+        public IList<Field> Fields { get; set; } = new List<Field>();
 
         /// <summary>
         /// Gets or sets an alertnative serializer for the elasticsearch client to use.
         /// </summary>
         public IElasticsearchSerializer ElasticsearchSerializer { get; set; }
 
+        /// <summary>
+        /// Gets or sets if exceptions will be rethrown.
+        /// 
+        /// Set it to true if ElasticSearchTarget target is used within FallbackGroup target (https://github.com/NLog/NLog/wiki/FallbackGroup-target).
+        /// </summary>
+        public bool ThrowExceptions { get; set; }
+
         public ElasticSearchTarget()
         {
             Name = "ElasticSearch";
-            Uri = "http://localhost:9200";
-            DocumentType = "logevent";
-            Index = "logstash-${date:format=yyyy.MM.dd}";
-            Fields = new List<Field>();
         }
 
         protected override void InitializeTarget()
@@ -136,9 +139,9 @@ namespace NLog.Targets.ElasticSearch
 
                 if (!result.Success)
                 {
-                    InternalLogger.Error("Failed to send log messages to elasticsearch: status={0}, message=\"{1}\"",
-                        result.HttpStatusCode, result.OriginalException?.Message ?? "No error message. Enable Trace logging for more information.");
-                    InternalLogger.Trace("Failed to send log messages to elasticsearch: result={0}", result);
+                    var errorMessage = result.OriginalException?.Message ?? "No error message. Enable Trace logging for more information.";
+                    InternalLogger.Error($"Failed to send log messages to elasticsearch: status={result.HttpStatusCode}, message=\"{errorMessage}\"");
+                    InternalLogger.Trace($"Failed to send log messages to elasticsearch: result={result}");
 
                     if (result.OriginalException != null)
                         throw result.OriginalException;
@@ -151,9 +154,9 @@ namespace NLog.Targets.ElasticSearch
             }
             catch (Exception ex)
             {
-                InternalLogger.Error("Error while sending log messages to elasticsearch: message=\"{0}\"", ex.Message);
+                InternalLogger.Error($"Error while sending log messages to elasticsearch: message=\"{ex.Message}\"");
 
-                foreach (var ev in events)
+                foreach(var ev in events)
                 {
                     ev.Continuation(ex);
                 }
