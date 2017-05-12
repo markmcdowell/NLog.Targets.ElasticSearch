@@ -76,7 +76,7 @@ namespace NLog.Targets.ElasticSearch
         public IList<Field> Fields { get; set; } = new List<Field>();
 
         /// <summary>
-        /// Gets or sets an alertnative serializer for the elasticsearch client to use.
+        /// Gets or sets an alternative serializer for the elasticsearch client to use.
         /// </summary>
         public IElasticsearchSerializer ElasticsearchSerializer { get; set; }
 
