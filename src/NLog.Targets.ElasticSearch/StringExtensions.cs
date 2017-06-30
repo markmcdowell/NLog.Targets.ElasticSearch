@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 #if NET45
 using System.Configuration;
 #else
@@ -10,20 +11,25 @@ namespace NLog.Targets.ElasticSearch
 {
     internal static class StringExtensions
     {
-        public static object ToSystemType(this string field, Type type)
+        public static object ToSystemType(this string field, Type type, IFormatProvider formatProvider)
         {
+            if (formatProvider == null)
+            {
+                formatProvider = CultureInfo.CurrentCulture;
+            }
+
             switch (type.FullName)
             {
                 case "System.Boolean":
-                    return Convert.ToBoolean(field);
+                    return Convert.ToBoolean(field, formatProvider);
                 case "System.Double":
-                    return Convert.ToDouble(field);
+                    return Convert.ToDouble(field, formatProvider);
                 case "System.DateTime":
-                    return Convert.ToDateTime(field);
+                    return Convert.ToDateTime(field, formatProvider);
                 case "System.Int32":
-                    return Convert.ToInt32(field);
+                    return Convert.ToInt32(field, formatProvider);
                 case "System.Int64":
-                    return Convert.ToInt64(field);
+                    return Convert.ToInt64(field, formatProvider);
                 default:
                     return field;
             }

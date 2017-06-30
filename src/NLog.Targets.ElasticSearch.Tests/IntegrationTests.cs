@@ -58,6 +58,6 @@ namespace NLog.Targets.ElasticSearch.Tests
             logger.Info("Hello elasticsearch");
 
             LogManager.Flush();
-        }        
+        }
     }
 }
