@@ -189,7 +189,7 @@ namespace NLog.Targets.ElasticSearch
                 {
                     var renderedField = field.Layout.Render(logEvent);
                     if (!string.IsNullOrWhiteSpace(renderedField))
-                        document[field.Name] = renderedField.ToSystemType(field.LayoutType);
+                        document[field.Name] = renderedField.ToSystemType(field.LayoutType, logEvent.FormatProvider);
                 }
 
                 if (IncludeAllProperties)
