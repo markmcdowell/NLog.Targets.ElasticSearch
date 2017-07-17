@@ -178,7 +178,7 @@ namespace NLog.Targets.ElasticSearch
 
                 if (logEvent.Exception != null)
                 {
-                    var jsonString = JsonConvert.SerializeObject(logEvent.Exception);
+                    var jsonString = JsonConvert.SerializeObject(logEvent.Exception, new JsonSerializerSettings { ReferenceLoopHandling = ReferenceLoopHandling.Ignore });
 
                     var ex = JsonConvert.DeserializeObject<ExpandoObject>(jsonString);
 
