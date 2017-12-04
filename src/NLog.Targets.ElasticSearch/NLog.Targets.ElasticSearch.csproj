@@ -14,7 +14,7 @@
   <ItemGroup>
     <PackageReference Include="Elasticsearch.Net" Version="5.2.0" />
     <PackageReference Include="Newtonsoft.Json" Version="9.0.1" />
-    <PackageReference Include="NLog" Version="5.0.0-beta06" />
+    <PackageReference Include="NLog" Version="4.5.0-rc02" />
   </ItemGroup>
 
   <ItemGroup Condition=" '$(TargetFramework)' == 'netstandard1.3' ">
