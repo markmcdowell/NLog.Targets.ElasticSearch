@@ -117,17 +117,12 @@ namespace NLog.Targets.ElasticSearch
                 _excludedProperties = ExcludedProperties.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).ToList();
         }
 
-        protected override void Write(AsyncLogEventInfo logEvent)
-        {
-            Write(new[] { logEvent });
-        }
-
-        protected override void Write(AsyncLogEventInfo[] logEvents)
+        protected override void Write(IList<AsyncLogEventInfo> logEvents)
         {
             SendBatch(logEvents);
         }
 
-        private void SendBatch(IEnumerable<AsyncLogEventInfo> events)
+        private void SendBatch(ICollection<AsyncLogEventInfo> events)
         {
             try
             {
