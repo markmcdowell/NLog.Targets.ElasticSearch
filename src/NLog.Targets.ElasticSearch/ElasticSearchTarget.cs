@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Dynamic;
 using System.Linq;
 using Elasticsearch.Net;
 using NLog.Common;
 using NLog.Config;
 using NLog.Layouts;
 using Newtonsoft.Json;
-using System.Dynamic;
 
 namespace NLog.Targets.ElasticSearch
 {
@@ -15,6 +15,7 @@ namespace NLog.Targets.ElasticSearch
     {
         private IElasticLowLevelClient _client;
         private List<string> _excludedProperties = new List<string>(new[] { "CallerMemberName", "CallerFilePath", "CallerLineNumber", "MachineName", "ThreadId" });
+        private readonly JsonSerializerSettings _jsonSerializerSettings = new JsonSerializerSettings { ReferenceLoopHandling = ReferenceLoopHandling.Ignore };
 
         /// <summary>
         /// Gets or sets a connection string name to retrieve the Uri from.
@@ -117,17 +118,20 @@ namespace NLog.Targets.ElasticSearch
                 _excludedProperties = ExcludedProperties.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).ToList();
         }
 
+        protected override void Write(AsyncLogEventInfo logEvent)
+        {
+            SendBatch(new[] { logEvent });
+        }
+
         protected override void Write(IList<AsyncLogEventInfo> logEvents)
         {
             SendBatch(logEvents);
         }
 
-        private void SendBatch(ICollection<AsyncLogEventInfo> events)
+        private void SendBatch(IList<AsyncLogEventInfo> logEvents)
         {
             try
             {
-                var logEvents = events.Select(e => e.LogEvent);
-
                 var payload = FormPayload(logEvents);
 
                 var result = _client.Bulk<byte[]>(payload);
@@ -142,7 +146,7 @@ namespace NLog.Targets.ElasticSearch
                         throw result.OriginalException;
                 }
 
-                foreach (var ev in events)
+                foreach (var ev in logEvents)
                 {
                     ev.Continuation(null);
                 }
@@ -151,19 +155,21 @@ namespace NLog.Targets.ElasticSearch
             {
                 InternalLogger.Error($"Error while sending log messages to elasticsearch: message=\"{ex.Message}\"");
 
-                foreach(var ev in events)
+                foreach(var ev in logEvents)
                 {
                     ev.Continuation(ex);
                 }
             }
         }
 
-        private object FormPayload(IEnumerable<LogEventInfo> logEvents)
+        private object FormPayload(IList<AsyncLogEventInfo> logEvents)
         {
-            var payload = new List<object>();
+            var payload = new List<object>(logEvents.Count);
 
-            foreach (var logEvent in logEvents)
+            foreach (var ev in logEvents)
             {
+                var logEvent = ev.LogEvent;
+
                 var document = new Dictionary<string, object>
                 {
                     {"@timestamp", logEvent.TimeStamp},
@@ -173,10 +179,8 @@ namespace NLog.Targets.ElasticSearch
 
                 if (logEvent.Exception != null)
                 {
-                    var jsonString = JsonConvert.SerializeObject(logEvent.Exception, new JsonSerializerSettings { ReferenceLoopHandling = ReferenceLoopHandling.Ignore });
-
+                    var jsonString = JsonConvert.SerializeObject(logEvent.Exception, _jsonSerializerSettings);
                     var ex = JsonConvert.DeserializeObject<ExpandoObject>(jsonString);
-
                     document.Add("exception", ex.ReplaceDotInKeys());
                 }
 
@@ -189,10 +193,18 @@ namespace NLog.Targets.ElasticSearch
 
                 if (IncludeAllProperties)
                 {
-                    foreach (var p in logEvent.Properties.Where(p => !_excludedProperties.Contains(p.Key.ToString()))
-                                                         .Where(p => !document.ContainsKey(p.Key.ToString())))
+                    if (logEvent.Properties.Count > 0)
                     {
-                        document[p.Key.ToString()] = p.Value;
+                        foreach (var p in logEvent.Properties)
+                        {
+                            var propertyKey = p.Key.ToString();
+                            if (_excludedProperties.Contains(propertyKey))
+                                continue;
+                            if (document.ContainsKey(propertyKey))
+                                continue;
+
+                            document[propertyKey] = p.Value;
+                        }
                     }
                 }
 
