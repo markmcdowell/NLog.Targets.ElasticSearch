@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Dynamic;
 using System.Globalization;
+using Newtonsoft.Json;
 #if NET45
 using System.Configuration;
 #else
@@ -30,6 +32,8 @@ namespace NLog.Targets.ElasticSearch
                     return Convert.ToInt32(field, formatProvider);
                 case "System.Int64":
                     return Convert.ToInt64(field, formatProvider);
+                case "System.Object":
+                    return JsonConvert.DeserializeObject<ExpandoObject>(field).ReplaceDotInKeys();
                 default:
                     return field;
             }
