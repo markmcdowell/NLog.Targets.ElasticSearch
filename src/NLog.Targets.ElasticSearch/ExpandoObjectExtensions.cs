@@ -15,16 +15,20 @@ namespace NLog.Targets.ElasticSearch
             var clone = new ExpandoObject();
             foreach (var item in obj)
             {
-                if (item.Value == null)
-                    continue;
-
-                if (item.Value.GetType() == typeof(ExpandoObject))
-                    ((IDictionary<string, object>)clone)[item.Key.Replace('.', '_')]
-                        = (item.Value as ExpandoObject).ReplaceDotInKeys();
-                else if (item.Key.Contains('.'))
-                    ((IDictionary<string, object>)clone)[item.Key.Replace('.', '_')] = item.Value;
-                else
-                    ((IDictionary<string, object>)clone)[item.Key] = item.Value;
+                switch (item.Value)
+                {
+                    case null:
+                        continue;
+                    case ExpandoObject expandoObject:
+                        ((IDictionary<string, object>)clone)[item.Key.Replace('.', '_')] = expandoObject.ReplaceDotInKeys();
+                        break;
+                    default:
+                        if (item.Key.Contains('.'))
+                            ((IDictionary<string, object>)clone)[item.Key.Replace('.', '_')] = item.Value;
+                        else
+                            ((IDictionary<string, object>)clone)[item.Key] = item.Value;
+                        break;
+                }
             }
             return clone;
         }
