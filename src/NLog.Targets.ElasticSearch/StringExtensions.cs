@@ -16,9 +16,7 @@ namespace NLog.Targets.ElasticSearch
         public static object ToSystemType(this string field, Type type, IFormatProvider formatProvider)
         {
             if (formatProvider == null)
-            {
                 formatProvider = CultureInfo.CurrentCulture;
-            }
 
             switch (type.FullName)
             {
@@ -33,7 +31,8 @@ namespace NLog.Targets.ElasticSearch
                 case "System.Int64":
                     return Convert.ToInt64(field, formatProvider);
                 case "System.Object":
-                    return JsonConvert.DeserializeObject<ExpandoObject>(field).ReplaceDotInKeys();
+                    return JsonConvert.DeserializeObject<ExpandoObject>(field)
+                                      .ReplaceDotInKeys();
                 default:
                     return field;
             }
@@ -41,7 +40,7 @@ namespace NLog.Targets.ElasticSearch
 
         public static string GetConnectionString(this string name)
         {
-            var value = GetEnvironmentVariable(name);
+            var value = name.GetEnvironmentVariable();
             if (!string.IsNullOrEmpty(value))
                 return value;
 

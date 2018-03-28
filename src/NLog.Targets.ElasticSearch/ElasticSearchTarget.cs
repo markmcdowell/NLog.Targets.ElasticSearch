@@ -104,7 +104,7 @@ namespace NLog.Targets.ElasticSearch
             var config = new ConnectionConfiguration(connectionPool);
 
             if (ElasticsearchSerializer != null)
-                config = new ConnectionConfiguration(connectionPool, _ => ElasticsearchSerializer);
+                config = new ConnectionConfiguration(connectionPool, ElasticsearchSerializer);
 
             if (RequireAuth)
                 config.BasicAuthentication(Username, Password);
@@ -128,13 +128,13 @@ namespace NLog.Targets.ElasticSearch
             SendBatch(logEvents);
         }
 
-        private void SendBatch(IList<AsyncLogEventInfo> logEvents)
+        private void SendBatch(ICollection<AsyncLogEventInfo> logEvents)
         {
             try
             {
                 var payload = FormPayload(logEvents);
 
-                var result = _client.Bulk<byte[]>(payload);
+                var result = _client.Bulk<BytesResponse>(payload);
 
                 if (!result.Success)
                 {
@@ -162,7 +162,7 @@ namespace NLog.Targets.ElasticSearch
             }
         }
 
-        private object FormPayload(IList<AsyncLogEventInfo> logEvents)
+        private PostData FormPayload(ICollection<AsyncLogEventInfo> logEvents)
         {
             var payload = new List<object>(logEvents.Count);
 
@@ -191,20 +191,17 @@ namespace NLog.Targets.ElasticSearch
                         document[field.Name] = renderedField.ToSystemType(field.LayoutType, logEvent.FormatProvider);
                 }
 
-                if (IncludeAllProperties)
+                if (IncludeAllProperties && logEvent.Properties.Any())
                 {
-                    if (logEvent.Properties.Count > 0)
+                    foreach (var p in logEvent.Properties)
                     {
-                        foreach (var p in logEvent.Properties)
-                        {
-                            var propertyKey = p.Key.ToString();
-                            if (_excludedProperties.Contains(propertyKey))
-                                continue;
-                            if (document.ContainsKey(propertyKey))
-                                continue;
+                        var propertyKey = p.Key.ToString();
+                        if (_excludedProperties.Contains(propertyKey))
+                            continue;
+                        if (document.ContainsKey(propertyKey))
+                            continue;
 
-                            document[propertyKey] = p.Value;
-                        }
+                        document[propertyKey] = p.Value;
                     }
                 }
 
@@ -215,7 +212,7 @@ namespace NLog.Targets.ElasticSearch
                 payload.Add(document);
             }
 
-            return payload;
+            return PostData.MultiJson(payload);
         }
     }
 }
