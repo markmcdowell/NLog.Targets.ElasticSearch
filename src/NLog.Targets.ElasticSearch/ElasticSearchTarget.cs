@@ -205,6 +205,28 @@ namespace NLog.Targets.ElasticSearch
                     }
                 }
 
+                if (logEvent.Parameters.Any())
+                {
+                    foreach (var p in logEvent.Parameters.Where(p => logEvent.Properties.Values.Contains(p) == false))
+                    {
+                        if (p is KeyValuePair<string, object>)
+                        {
+                            KeyValuePair<string, object> kvp = (KeyValuePair<string, object>)p;
+                            document[kvp.Key] = kvp.Value;
+                        }
+                        else if (p is string[])
+                        {
+                            var strPropertyArray = p as string[];
+                            document[strPropertyArray[0]] = strPropertyArray[1];
+                        }
+                        else if (p is Dictionary<string, object>)
+                        {
+                            var paramsDict = p as Dictionary<string, object>;
+                            document = document.Union(paramsDict).ToDictionary(pair => pair.Key, pair => pair.Value);
+                        }
+                    }
+                }
+
                 var index = Index.Render(logEvent).ToLowerInvariant();
                 var type = DocumentType.Render(logEvent);
 
