@@ -27,7 +27,8 @@ namespace NLog.Targets.ElasticSearch
         /// <summary>
         /// Gets or sets the elasticsearch uri, can be multiple comma separated.
         /// </summary>
-        public string Uri { get; set; } = "http://localhost:9200";
+        public string Uri { get => (_uri as SimpleLayout)?.Text; set => _uri = value ?? string.Empty; }
+        private Layout _uri = "http://localhost:9200";
 
         /// <summary>
         /// Set it to true if ElasticSearch uses BasicAuth
@@ -97,7 +98,7 @@ namespace NLog.Targets.ElasticSearch
         {
             base.InitializeTarget();
 
-            var uri = ConnectionStringName.GetConnectionString() ?? Uri;
+            var uri = ConnectionStringName.GetConnectionString() ?? (_uri?.Render(LogEventInfo.CreateNullEvent())) ?? string.Empty;
             var nodes = uri.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).Select(url => new Uri(url));
             var connectionPool = new StaticConnectionPool(nodes);
 
@@ -139,8 +140,8 @@ namespace NLog.Targets.ElasticSearch
                 if (!result.Success)
                 {
                     var errorMessage = result.OriginalException?.Message ?? "No error message. Enable Trace logging for more information.";
-                    InternalLogger.Error($"Failed to send log messages to elasticsearch: status={result.HttpStatusCode}, message=\"{errorMessage}\"");
-                    InternalLogger.Trace($"Failed to send log messages to elasticsearch: result={result}");
+                    InternalLogger.Error($"ElasticSearch: Failed to send log messages. status={result.HttpStatusCode}, message=\"{errorMessage}\"");
+                    InternalLogger.Trace($"ElasticSearch: Failed to send log messages. result={result}");
 
                     if (result.OriginalException != null)
                         throw result.OriginalException;
@@ -153,7 +154,18 @@ namespace NLog.Targets.ElasticSearch
             }
             catch (Exception ex)
             {
-                InternalLogger.Error($"Error while sending log messages to elasticsearch: message=\"{ex.Message}\"");
+                if (ex is AggregateException aggregateException)
+                {
+                    var flattenException = aggregateException.Flatten();
+                    if (flattenException.InnerExceptions.Count == 1)
+                        InternalLogger.Error(flattenException.InnerExceptions[0], "ElasticSearch: Error while sending log messages");
+                    else
+                        InternalLogger.Error(flattenException, "ElasticSearch: Error while sending log messages");
+                }
+                else
+                {
+                    InternalLogger.Error(ex, "ElasticSearch: Error while sending log messages");
+                }
 
                 foreach(var ev in logEvents)
                 {
@@ -191,7 +203,7 @@ namespace NLog.Targets.ElasticSearch
                         document[field.Name] = renderedField.ToSystemType(field.LayoutType, logEvent.FormatProvider);
                 }
 
-                if (IncludeAllProperties && logEvent.Properties.Any())
+                if (IncludeAllProperties && logEvent.HasProperties)
                 {
                     foreach (var p in logEvent.Properties)
                     {
