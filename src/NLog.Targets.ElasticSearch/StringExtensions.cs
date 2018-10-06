@@ -40,6 +40,9 @@ namespace NLog.Targets.ElasticSearch
 
         public static string GetConnectionString(this string name)
         {
+            if (string.IsNullOrEmpty(name))
+                return null;
+
             var value = name.GetEnvironmentVariable();
             if (!string.IsNullOrEmpty(value))
                 return value;
