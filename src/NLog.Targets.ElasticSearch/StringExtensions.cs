@@ -5,15 +5,15 @@ using Newtonsoft.Json;
 #if NET45
 using System.Configuration;
 #else
-using System.IO;
 using Microsoft.Extensions.Configuration;
 #endif
+using System.IO;
 
 namespace NLog.Targets.ElasticSearch
 {
     internal static class StringExtensions
     {
-        public static object ToSystemType(this string field, Type type, IFormatProvider formatProvider)
+        public static object ToSystemType(this string field, Type type, IFormatProvider formatProvider, JsonSerializer jsonSerializer)
         {
             if (formatProvider == null)
                 formatProvider = CultureInfo.CurrentCulture;
@@ -31,8 +31,10 @@ namespace NLog.Targets.ElasticSearch
                 case "System.Int64":
                     return Convert.ToInt64(field, formatProvider);
                 case "System.Object":
-                    return JsonConvert.DeserializeObject<ExpandoObject>(field)
-                                      .ReplaceDotInKeys();
+                    using (JsonTextReader reader = new JsonTextReader(new StringReader(field)))
+                    {
+                        return ((ExpandoObject)jsonSerializer.Deserialize(reader, typeof(ExpandoObject))).ReplaceDotInKeys(alwaysCloneObject: false);
+                    }
                 default:
                     return field;
             }
@@ -43,7 +45,7 @@ namespace NLog.Targets.ElasticSearch
             if (string.IsNullOrEmpty(name))
                 return null;
 
-            var value = name.GetEnvironmentVariable();
+            var value = Environment.GetEnvironmentVariable(name);
             if (!string.IsNullOrEmpty(value))
                 return value;
 
@@ -59,11 +61,6 @@ namespace NLog.Targets.ElasticSearch
 
             return configuration.GetConnectionString(name);
 #endif
-        }
-
-        private static string GetEnvironmentVariable(this string name)
-        {
-            return string.IsNullOrEmpty(name) ? null : Environment.GetEnvironmentVariable(name);
         }
     }
 }
