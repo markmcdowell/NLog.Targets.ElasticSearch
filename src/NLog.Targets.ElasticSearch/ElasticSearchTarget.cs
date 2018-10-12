@@ -15,7 +15,17 @@ namespace NLog.Targets.ElasticSearch
     {
         private IElasticLowLevelClient _client;
         private List<string> _excludedProperties = new List<string>(new[] { "CallerMemberName", "CallerFilePath", "CallerLineNumber", "MachineName", "ThreadId" });
-        private readonly JsonSerializerSettings _jsonSerializerSettings = new JsonSerializerSettings { ReferenceLoopHandling = ReferenceLoopHandling.Ignore };
+        private readonly JsonSerializerSettings _jsonSerializerSettings = CreateJsonSerializerSettings();
+
+        static JsonSerializerSettings CreateJsonSerializerSettings()
+        {
+            var jsonSerializerSettings = new JsonSerializerSettings { ReferenceLoopHandling = ReferenceLoopHandling.Ignore, CheckAdditionalContent = true };
+            jsonSerializerSettings.Converters.Add(new Newtonsoft.Json.Converters.StringEnumConverter());
+            return jsonSerializerSettings;
+        }
+
+        private JsonSerializer JsonSerializer => _jsonSerializer ?? (_jsonSerializer = JsonSerializer.CreateDefault(_jsonSerializerSettings));
+        private JsonSerializer _jsonSerializer;
 
         /// <summary>
         /// Gets or sets a connection string name to retrieve the Uri from.
@@ -92,6 +102,7 @@ namespace NLog.Targets.ElasticSearch
         public ElasticSearchTarget()
         {
             Name = "ElasticSearch";
+            OptimizeBufferReuse = true;
         }
 
         protected override void InitializeTarget()
@@ -186,7 +197,7 @@ namespace NLog.Targets.ElasticSearch
                 {
                     {"@timestamp", logEvent.TimeStamp},
                     {"level", logEvent.Level.Name},
-                    {"message", Layout.Render(logEvent)}
+                    {"message", RenderLogEvent(Layout, logEvent)}
                 };
 
                 if (logEvent.Exception != null)
@@ -198,9 +209,19 @@ namespace NLog.Targets.ElasticSearch
 
                 foreach (var field in Fields)
                 {
-                    var renderedField = field.Layout.Render(logEvent);
+                    var renderedField = RenderLogEvent(field.Layout, logEvent);
                     if (!string.IsNullOrWhiteSpace(renderedField))
-                        document[field.Name] = renderedField.ToSystemType(field.LayoutType, logEvent.FormatProvider);
+                    {
+                        try
+                        {
+                            document[field.Name] = renderedField.ToSystemType(field.LayoutType, logEvent.FormatProvider, JsonSerializer);
+                        }
+                        catch (Exception ex)
+                        {
+                            _jsonSerializer = null; // Reset as it might now be in bad state
+                            InternalLogger.Error(ex, "ElasticSearch: Error while formatting field: {0}", field.Name);
+                        }
+                    }
                 }
 
                 if (IncludeAllProperties && logEvent.HasProperties)
@@ -217,8 +238,8 @@ namespace NLog.Targets.ElasticSearch
                     }
                 }
 
-                var index = Index.Render(logEvent).ToLowerInvariant();
-                var type = DocumentType.Render(logEvent);
+                var index = RenderLogEvent(Index, logEvent).ToLowerInvariant();
+                var type = RenderLogEvent(DocumentType, logEvent);
 
                 payload.Add(new { index = new { _index = index, _type = type } });
                 payload.Add(document);
