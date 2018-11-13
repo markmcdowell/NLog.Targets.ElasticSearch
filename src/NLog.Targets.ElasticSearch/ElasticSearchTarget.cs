@@ -82,6 +82,11 @@ namespace NLog.Targets.ElasticSearch
         public Layout DocumentType { get; set; } = "logevent";
 
         /// <summary>
+        /// Gets or sets the pipeline transformation
+        /// </summary>
+        public Layout Pipeline { get; set; }
+
+        /// <summary>
         /// Gets or sets a list of additional fields to add to the elasticsearch document.
         /// </summary>
         [ArrayParameter(typeof(Field), "field")]
@@ -97,6 +102,7 @@ namespace NLog.Targets.ElasticSearch
         /// 
         /// Set it to true if ElasticSearchTarget target is used within FallbackGroup target (https://github.com/NLog/NLog/wiki/FallbackGroup-target).
         /// </summary>
+        [Obsolete("No longer needed")]
         public bool ThrowExceptions { get; set; }
 
         public ElasticSearchTarget()
@@ -187,7 +193,7 @@ namespace NLog.Targets.ElasticSearch
 
         private PostData FormPayload(ICollection<AsyncLogEventInfo> logEvents)
         {
-            var payload = new List<object>(logEvents.Count);
+            var payload = new List<object>(logEvents.Count * 2);    // documentInfo + document
 
             foreach (var ev in logEvents)
             {
@@ -240,8 +246,12 @@ namespace NLog.Targets.ElasticSearch
 
                 var index = RenderLogEvent(Index, logEvent).ToLowerInvariant();
                 var type = RenderLogEvent(DocumentType, logEvent);
+                var pipeLine = Pipeline != null ? RenderLogEvent(Pipeline, logEvent) : null;
 
-                payload.Add(new { index = new { _index = index, _type = type } });
+                object documentInfo = string.IsNullOrEmpty(pipeLine) ?
+                    (object)new { index = new { _index = index, _type = type } } :
+                    (object)new { index = new { _index = index, _type = type, pipeline = pipeLine } };
+                payload.Add(documentInfo);
                 payload.Add(document);
             }
 

@@ -55,7 +55,7 @@ namespace NLog.Targets.ElasticSearch
 #else
             var builder = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json", true, true);
+                .AddJsonFile("appsettings.json", true, reloadOnChange: false);  // CreateFileWatcher not supported on all platforms, and not needed
 
             var configuration = builder.Build();
 
