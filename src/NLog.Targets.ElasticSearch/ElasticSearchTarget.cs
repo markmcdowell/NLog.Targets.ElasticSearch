@@ -61,6 +61,16 @@ namespace NLog.Targets.ElasticSearch
         public bool DisableAutomaticProxyDetection { get; set; }
 
         /// <summary>
+        /// Set it to true to disable use of ping to checking if node is alive
+        /// </summary>
+        public bool DisablePing { get; set; }
+
+        /// <summary>
+        /// Set it to true to enable HttpCompression (Must be enabled on server)
+        /// </summary>
+        public bool EnableHttpCompression { get; set; }
+
+        /// <summary>
         /// Gets or sets the name of the elasticsearch index to write to.
         /// </summary>
         public Layout Index { get; set; } = "logstash-${date:format=yyyy.MM.dd}";
@@ -130,6 +140,12 @@ namespace NLog.Targets.ElasticSearch
             if (DisableAutomaticProxyDetection)
                 config.DisableAutomaticProxyDetection();
 
+            if (DisablePing)
+                config.DisablePing();
+
+            if (EnableHttpCompression)
+                config.EnableHttpCompression();
+
             _client = new ElasticLowLevelClient(config);
 
             if (!string.IsNullOrEmpty(ExcludedProperties))
@@ -146,7 +162,7 @@ namespace NLog.Targets.ElasticSearch
             SendBatch(logEvents);
         }
 
-        private void SendBatch(IList<AsyncLogEventInfo> logEvents)
+        private void SendBatch(ICollection<AsyncLogEventInfo> logEvents)
         {
             try
             {
