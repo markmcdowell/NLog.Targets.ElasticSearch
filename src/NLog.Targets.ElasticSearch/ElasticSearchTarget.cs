@@ -146,7 +146,7 @@ namespace NLog.Targets.ElasticSearch
             SendBatch(logEvents);
         }
 
-        private void SendBatch(ICollection<AsyncLogEventInfo> logEvents)
+        private void SendBatch(IList<AsyncLogEventInfo> logEvents)
         {
             try
             {
@@ -154,41 +154,42 @@ namespace NLog.Targets.ElasticSearch
 
                 var result = _client.Bulk<BytesResponse>(payload);
 
-                if (!result.Success)
+                var exception = result.Success ? null : (result.OriginalException ?? new Exception("No error message. Enable Trace logging for more information."));
+                if (exception != null)
                 {
-                    var errorMessage = result.OriginalException?.Message ?? "No error message. Enable Trace logging for more information.";
-                    InternalLogger.Error($"ElasticSearch: Failed to send log messages. status={result.HttpStatusCode}, message=\"{errorMessage}\"");
-                    InternalLogger.Trace($"ElasticSearch: Failed to send log messages. result={result}");
-
-                    if (result.OriginalException != null)
-                        throw result.OriginalException;
+                    InternalLogger.Error(ExtractActualException(exception), $"ElasticSearch: Failed to send log messages. status={result.HttpStatusCode}");
                 }
 
                 foreach (var ev in logEvents)
                 {
-                    ev.Continuation(null);
+                    ev.Continuation(exception);
                 }
             }
             catch (Exception ex)
             {
-                if (ex is AggregateException aggregateException)
-                {
-                    var flattenException = aggregateException.Flatten();
-                    if (flattenException.InnerExceptions.Count == 1)
-                        InternalLogger.Error(flattenException.InnerExceptions[0], "ElasticSearch: Error while sending log messages");
-                    else
-                        InternalLogger.Error(flattenException, "ElasticSearch: Error while sending log messages");
-                }
-                else
-                {
-                    InternalLogger.Error(ex, "ElasticSearch: Error while sending log messages");
-                }
-
+                InternalLogger.Error(ExtractActualException(ex), "ElasticSearch: Error while sending log messages");
                 foreach(var ev in logEvents)
                 {
                     ev.Continuation(ex);
                 }
             }
+        }
+
+        private static Exception ExtractActualException(Exception ex)
+        {
+            if (ex is AggregateException aggregateException)
+            {
+                var flattenException = aggregateException.Flatten();
+                if (flattenException.InnerExceptions.Count == 1)
+                {
+                    return flattenException.InnerExceptions[0];
+                }
+                else
+                {
+                    return flattenException;
+                }
+            }
+            return ex;
         }
 
         private PostData FormPayload(ICollection<AsyncLogEventInfo> logEvents)
