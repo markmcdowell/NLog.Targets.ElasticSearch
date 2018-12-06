@@ -14,7 +14,7 @@ namespace NLog.Targets.ElasticSearch
     public class ElasticSearchTarget : TargetWithLayout, IElasticSearchTarget
     {
         private IElasticLowLevelClient _client;
-        private List<string> _excludedProperties = new List<string>(new[] { "CallerMemberName", "CallerFilePath", "CallerLineNumber", "MachineName", "ThreadId" });
+        private HashSet<string> _excludedProperties = new HashSet<string>(new[] { "CallerMemberName", "CallerFilePath", "CallerLineNumber", "MachineName", "ThreadId" });
         private readonly JsonSerializerSettings _jsonSerializerSettings = CreateJsonSerializerSettings();
 
         static JsonSerializerSettings CreateJsonSerializerSettings()
@@ -149,7 +149,7 @@ namespace NLog.Targets.ElasticSearch
             _client = new ElasticLowLevelClient(config);
 
             if (!string.IsNullOrEmpty(ExcludedProperties))
-                _excludedProperties = ExcludedProperties.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+                _excludedProperties = new HashSet<string>(ExcludedProperties.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
         }
 
         protected override void Write(AsyncLogEventInfo logEvent)
