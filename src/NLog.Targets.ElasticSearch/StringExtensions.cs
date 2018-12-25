@@ -57,6 +57,10 @@ namespace NLog.Targets.ElasticSearch
                 .SetBasePath(Directory.GetCurrentDirectory())
                 .AddJsonFile("appsettings.json", true, true);
 
+            string env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+            if (!string.IsNullOrEmpty(env))
+                builder.AddJsonFile($"appsettings.{env}.json", true, true);
+
             var configuration = builder.Build();
 
             return configuration.GetConnectionString(name);
