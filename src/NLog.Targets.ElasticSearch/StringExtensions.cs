@@ -31,7 +31,7 @@ namespace NLog.Targets.ElasticSearch
                 case "System.Int64":
                     return Convert.ToInt64(field, formatProvider);
                 case "System.Object":
-                    using (JsonTextReader reader = new JsonTextReader(new StringReader(field)))
+                    using (var reader = new JsonTextReader(new StringReader(field)))
                     {
                         return ((ExpandoObject)jsonSerializer.Deserialize(reader, typeof(ExpandoObject))).ReplaceDotInKeys(alwaysCloneObject: false);
                     }
