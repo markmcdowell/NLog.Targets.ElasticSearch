@@ -1,12 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Dynamic;
-using System.Linq;
-using Elasticsearch.Net;
+﻿using Elasticsearch.Net;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 using NLog.Common;
 using NLog.Config;
 using NLog.Layouts;
-using Newtonsoft.Json;
+using System;
+using System.Collections.Generic;
+using System.Dynamic;
+using System.Linq;
+using System.Threading;
 
 namespace NLog.Targets.ElasticSearch
 {
@@ -14,18 +16,12 @@ namespace NLog.Targets.ElasticSearch
     public class ElasticSearchTarget : TargetWithLayout, IElasticSearchTarget
     {
         private IElasticLowLevelClient _client;
+        private Layout _uri = "http://localhost:9200";
         private HashSet<string> _excludedProperties = new HashSet<string>(new[] { "CallerMemberName", "CallerFilePath", "CallerLineNumber", "MachineName", "ThreadId" });
-        private readonly JsonSerializerSettings _jsonSerializerSettings = CreateJsonSerializerSettings();
-
-        static JsonSerializerSettings CreateJsonSerializerSettings()
-        {
-            var jsonSerializerSettings = new JsonSerializerSettings { ReferenceLoopHandling = ReferenceLoopHandling.Ignore, CheckAdditionalContent = true };
-            jsonSerializerSettings.Converters.Add(new Newtonsoft.Json.Converters.StringEnumConverter());
-            return jsonSerializerSettings;
-        }
-
-        private JsonSerializer JsonSerializer => _jsonSerializer ?? (_jsonSerializer = JsonSerializer.CreateDefault(_jsonSerializerSettings));
         private JsonSerializer _jsonSerializer;
+        private readonly Lazy<JsonSerializerSettings> _jsonSerializerSettings = new Lazy<JsonSerializerSettings>(CreateJsonSerializerSettings, LazyThreadSafetyMode.PublicationOnly);
+
+        private JsonSerializer JsonSerializer => _jsonSerializer ?? (_jsonSerializer = JsonSerializer.CreateDefault(_jsonSerializerSettings.Value));
 
         /// <summary>
         /// Gets or sets a connection string name to retrieve the Uri from.
@@ -38,7 +34,6 @@ namespace NLog.Targets.ElasticSearch
         /// Gets or sets the elasticsearch uri, can be multiple comma separated.
         /// </summary>
         public string Uri { get => (_uri as SimpleLayout)?.Text; set => _uri = value ?? string.Empty; }
-        private Layout _uri = "http://localhost:9200";
 
         /// <summary>
         /// Set it to true if ElasticSearch uses BasicAuth
@@ -170,10 +165,10 @@ namespace NLog.Targets.ElasticSearch
 
                 var result = _client.Bulk<BytesResponse>(payload);
 
-                var exception = result.Success ? null : (result.OriginalException ?? new Exception("No error message. Enable Trace logging for more information."));
+                var exception = result.Success ? null : result.OriginalException ?? new Exception("No error message. Enable Trace logging for more information.");
                 if (exception != null)
                 {
-                    InternalLogger.Error(ExtractActualException(exception), $"ElasticSearch: Failed to send log messages. status={result.HttpStatusCode}");
+                    InternalLogger.Error(exception.FlattenToActualException(), $"ElasticSearch: Failed to send log messages. status={result.HttpStatusCode}");
                 }
 
                 foreach (var ev in logEvents)
@@ -183,29 +178,12 @@ namespace NLog.Targets.ElasticSearch
             }
             catch (Exception ex)
             {
-                InternalLogger.Error(ExtractActualException(ex), "ElasticSearch: Error while sending log messages");
-                foreach(var ev in logEvents)
+                InternalLogger.Error(ex.FlattenToActualException(), "ElasticSearch: Error while sending log messages");
+                foreach (var ev in logEvents)
                 {
                     ev.Continuation(ex);
                 }
             }
-        }
-
-        private static Exception ExtractActualException(Exception ex)
-        {
-            if (ex is AggregateException aggregateException)
-            {
-                var flattenException = aggregateException.Flatten();
-                if (flattenException.InnerExceptions.Count == 1)
-                {
-                    return flattenException.InnerExceptions[0];
-                }
-                else
-                {
-                    return flattenException;
-                }
-            }
-            return ex;
         }
 
         private PostData FormPayload(ICollection<AsyncLogEventInfo> logEvents)
@@ -225,7 +203,7 @@ namespace NLog.Targets.ElasticSearch
 
                 if (logEvent.Exception != null)
                 {
-                    var jsonString = JsonConvert.SerializeObject(logEvent.Exception, _jsonSerializerSettings);
+                    var jsonString = JsonConvert.SerializeObject(logEvent.Exception, _jsonSerializerSettings.Value);
                     var ex = JsonConvert.DeserializeObject<ExpandoObject>(jsonString);
                     document.Add("exception", ex.ReplaceDotInKeys());
                 }
@@ -233,17 +211,18 @@ namespace NLog.Targets.ElasticSearch
                 foreach (var field in Fields)
                 {
                     var renderedField = RenderLogEvent(field.Layout, logEvent);
-                    if (!string.IsNullOrWhiteSpace(renderedField))
+
+                    if (string.IsNullOrWhiteSpace(renderedField))
+                        continue;
+
+                    try
                     {
-                        try
-                        {
-                            document[field.Name] = renderedField.ToSystemType(field.LayoutType, logEvent.FormatProvider, JsonSerializer);
-                        }
-                        catch (Exception ex)
-                        {
-                            _jsonSerializer = null; // Reset as it might now be in bad state
-                            InternalLogger.Error(ex, "ElasticSearch: Error while formatting field: {0}", field.Name);
-                        }
+                        document[field.Name] = renderedField.ToSystemType(field.LayoutType, logEvent.FormatProvider, JsonSerializer);
+                    }
+                    catch (Exception ex)
+                    {
+                        _jsonSerializer = null; // Reset as it might now be in bad state
+                        InternalLogger.Error(ex, "ElasticSearch: Error while formatting field: {0}", field.Name);
                     }
                 }
 
@@ -263,16 +242,28 @@ namespace NLog.Targets.ElasticSearch
 
                 var index = RenderLogEvent(Index, logEvent).ToLowerInvariant();
                 var type = RenderLogEvent(DocumentType, logEvent);
-                var pipeLine = Pipeline != null ? RenderLogEvent(Pipeline, logEvent) : null;
 
-                object documentInfo = string.IsNullOrEmpty(pipeLine) ?
-                    (object)new { index = new { _index = index, _type = type } } :
-                    (object)new { index = new { _index = index, _type = type, pipeline = pipeLine } };
+                object documentInfo;
+                if (Pipeline == null)
+                    documentInfo = new { index = new { _index = index, _type = type } };
+                else
+                {
+                    var pipeLine = RenderLogEvent(Pipeline, logEvent);
+                    documentInfo = new { index = new { _index = index, _type = type, pipeline = pipeLine } };
+                }
+
                 payload.Add(documentInfo);
                 payload.Add(document);
             }
 
             return PostData.MultiJson(payload);
+        }
+
+        private static JsonSerializerSettings CreateJsonSerializerSettings()
+        {
+            var jsonSerializerSettings = new JsonSerializerSettings { ReferenceLoopHandling = ReferenceLoopHandling.Ignore, CheckAdditionalContent = true };
+            jsonSerializerSettings.Converters.Add(new StringEnumConverter());
+            return jsonSerializerSettings;
         }
     }
 }

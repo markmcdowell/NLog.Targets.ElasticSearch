@@ -19,18 +19,18 @@ namespace NLog.Targets.ElasticSearch
                 {
                     case null:
                         if (clone == null)
-                            return obj.ReplaceDotInKeys(true);
+                            return obj.ReplaceDotInKeys();
                         break;
                     case ExpandoObject expandoObject:
                         if (clone == null)
-                            return obj.ReplaceDotInKeys(true);
+                            return obj.ReplaceDotInKeys();
                         ((IDictionary<string, object>)clone)[item.Key.Replace('.', '_')] = expandoObject.ReplaceDotInKeys();
                         break;
                     default:
                         if (item.Key.Contains('.'))
                         {
                             if (clone == null)
-                                return obj.ReplaceDotInKeys(true);
+                                return obj.ReplaceDotInKeys();
                             ((IDictionary<string, object>)clone)[item.Key.Replace('.', '_')] = item.Value;
                         }
                         else if (clone != null)
