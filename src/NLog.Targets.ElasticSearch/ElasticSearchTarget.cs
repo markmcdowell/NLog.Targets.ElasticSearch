@@ -17,6 +17,8 @@ namespace NLog.Targets.ElasticSearch
     {
         private IElasticLowLevelClient _client;
         private Layout _uri = "http://localhost:9200";
+        private Layout _username;
+        private Layout _password;
         private HashSet<string> _excludedProperties = new HashSet<string>(new[] { "CallerMemberName", "CallerFilePath", "CallerLineNumber", "MachineName", "ThreadId" });
         private JsonSerializer _jsonSerializer;
         private readonly Lazy<JsonSerializerSettings> _jsonSerializerSettings = new Lazy<JsonSerializerSettings>(CreateJsonSerializerSettings, LazyThreadSafetyMode.PublicationOnly);
@@ -43,12 +45,12 @@ namespace NLog.Targets.ElasticSearch
         /// <summary>
         /// Username for basic auth
         /// </summary>
-        public string Username { get; set; }
+        public string Username { get => (_username as SimpleLayout)?.Text; set => _username = value ?? string.Empty; }
 
         /// <summary>
         /// Password for basic auth
         /// </summary>
-        public string Password { get; set; }
+        public string Password { get => (_password as SimpleLayout)?.Text; set => _password = value ?? string.Empty; }
 
         /// <summary>
         /// Set it to true to disable proxy detection
@@ -130,7 +132,11 @@ namespace NLog.Targets.ElasticSearch
                 config = new ConnectionConfiguration(connectionPool, ElasticsearchSerializer);
 
             if (RequireAuth)
-                config.BasicAuthentication(Username, Password);
+            {
+                var username = _username?.Render(LogEventInfo.CreateNullEvent()) ?? string.Empty;
+                var password = _password?.Render(LogEventInfo.CreateNullEvent()) ?? string.Empty;
+                config.BasicAuthentication(username, password);
+            }
 
             if (DisableAutomaticProxyDetection)
                 config.DisableAutomaticProxyDetection();
