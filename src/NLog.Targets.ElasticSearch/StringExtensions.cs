@@ -2,7 +2,7 @@
 using System.Dynamic;
 using System.Globalization;
 using Newtonsoft.Json;
-#if NET45
+#if NET472
 using System.Configuration;
 #else
 using Microsoft.Extensions.Configuration;
@@ -49,7 +49,7 @@ namespace NLog.Targets.ElasticSearch
             if (!string.IsNullOrEmpty(value))
                 return value;
 
-#if NET45
+#if NET472
             var connectionString = ConfigurationManager.ConnectionStrings[name];
             return connectionString?.ConnectionString;
 #else
