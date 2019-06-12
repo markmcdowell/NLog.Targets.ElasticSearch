@@ -25,3 +25,12 @@ See [wiki](https://github.com/ReactiveMarkets/NLog.Targets.ElasticSearch/wiki) f
   </rules>
 </nlog>
 ```
+
+## Versions
+
+Versioning follows elasticsearch versions. E.g.
+
+| Version | Elasticsearch Version | NLog Version |
+| ------- | --------------------- | ------------ |
+| 7.x     | 7.x                   | 4.6.x        |
+| 6.x     | 6.x                   | 4.5.x        |
