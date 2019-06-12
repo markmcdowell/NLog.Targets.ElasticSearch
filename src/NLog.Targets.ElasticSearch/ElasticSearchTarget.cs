@@ -27,9 +27,10 @@ namespace NLog.Targets.ElasticSearch
 
         /// <summary>
         /// Gets or sets a connection string name to retrieve the Uri from.
-        /// 
+        ///
         /// Use as an alternative to Uri
         /// </summary>
+        [Obsolete("Deprecated. Please use the configsetting layout renderer instead.", true)]
         public string ConnectionStringName { get; set; }
 
         /// <summary>
@@ -106,10 +107,10 @@ namespace NLog.Targets.ElasticSearch
 
         /// <summary>
         /// Gets or sets if exceptions will be rethrown.
-        /// 
+        ///
         /// Set it to true if ElasticSearchTarget target is used within FallbackGroup target (https://github.com/NLog/NLog/wiki/FallbackGroup-target).
         /// </summary>
-        [Obsolete("No longer needed")]
+        [Obsolete("No longer needed", true)]
         public bool ThrowExceptions { get; set; }
 
         public ElasticSearchTarget()
@@ -122,7 +123,7 @@ namespace NLog.Targets.ElasticSearch
         {
             base.InitializeTarget();
 
-            var uri = ConnectionStringName.GetConnectionString() ?? (_uri?.Render(LogEventInfo.CreateNullEvent())) ?? string.Empty;
+            var uri = _uri?.Render(LogEventInfo.CreateNullEvent()) ?? string.Empty;
             var nodes = uri.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).Select(url => new Uri(url));
             var connectionPool = new StaticConnectionPool(nodes);
 
