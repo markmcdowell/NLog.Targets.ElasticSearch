@@ -2,7 +2,6 @@
 using System.Dynamic;
 using System.Globalization;
 using Newtonsoft.Json;
-using Microsoft.Extensions.Configuration;
 using System.IO;
 
 namespace NLog.Targets.ElasticSearch
@@ -34,24 +33,6 @@ namespace NLog.Targets.ElasticSearch
                 default:
                     return field;
             }
-        }
-
-        public static string GetConnectionString(this string name)
-        {
-            if (string.IsNullOrEmpty(name))
-                return null;
-
-            var value = Environment.GetEnvironmentVariable(name);
-            if (!string.IsNullOrEmpty(value))
-                return value;
-
-            var builder = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json", true, reloadOnChange: false);  // CreateFileWatcher not supported on all platforms, and not needed
-
-            var configuration = builder.Build();
-
-            return configuration.GetConnectionString(name);
         }
     }
 }
