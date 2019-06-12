@@ -2,11 +2,7 @@
 using System.Dynamic;
 using System.Globalization;
 using Newtonsoft.Json;
-#if NET472
-using System.Configuration;
-#else
 using Microsoft.Extensions.Configuration;
-#endif
 using System.IO;
 
 namespace NLog.Targets.ElasticSearch
@@ -49,10 +45,6 @@ namespace NLog.Targets.ElasticSearch
             if (!string.IsNullOrEmpty(value))
                 return value;
 
-#if NET472
-            var connectionString = ConfigurationManager.ConnectionStrings[name];
-            return connectionString?.ConnectionString;
-#else
             var builder = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
                 .AddJsonFile("appsettings.json", true, reloadOnChange: false);  // CreateFileWatcher not supported on all platforms, and not needed
@@ -60,7 +52,6 @@ namespace NLog.Targets.ElasticSearch
             var configuration = builder.Build();
 
             return configuration.GetConnectionString(name);
-#endif
         }
     }
 }
