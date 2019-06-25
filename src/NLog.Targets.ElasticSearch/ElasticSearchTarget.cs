@@ -36,7 +36,19 @@ namespace NLog.Targets.ElasticSearch
         /// <summary>
         /// Gets or sets the elasticsearch uri, can be multiple comma separated.
         /// </summary>
-        public string Uri { get => (_uri as SimpleLayout)?.Text; set => _uri = value ?? string.Empty; }
+        public string Uri
+        {
+            get => (_uri as SimpleLayout)?.Text;
+            set
+            {
+                _uri = value ?? string.Empty;
+
+                if (IsInitialized)
+                {
+                    InitializeTarget();
+                }
+            }
+        }
 
         /// <summary>
         /// Set it to true if ElasticSearch uses BasicAuth
