@@ -282,6 +282,11 @@ namespace NLog.Targets.ElasticSearch
         {
             var jsonSerializerSettings = new JsonSerializerSettings { ReferenceLoopHandling = ReferenceLoopHandling.Ignore, CheckAdditionalContent = true };
             jsonSerializerSettings.Converters.Add(new StringEnumConverter());
+            jsonSerializerSettings.Error = (sender, args) =>
+            {
+                InternalLogger.Warn(args.ErrorContext.Error, $"Error serializing exception property '{args.ErrorContext.Member}', property ignored");
+                args.ErrorContext.Handled = true;
+            };
             return jsonSerializerSettings;
         }
     }
