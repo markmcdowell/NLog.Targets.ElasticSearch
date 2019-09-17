@@ -220,13 +220,6 @@ namespace NLog.Targets.ElasticSearch
                     {"message", RenderLogEvent(Layout, logEvent)}
                 };
 
-                if (logEvent.Exception != null)
-                {
-                    var jsonString = JsonConvert.SerializeObject(logEvent.Exception, _jsonSerializerSettings.Value);
-                    var ex = JsonConvert.DeserializeObject<ExpandoObject>(jsonString);
-                    document.Add("exception", ex.ReplaceDotInKeys());
-                }
-
                 foreach (var field in Fields)
                 {
                     var renderedField = RenderLogEvent(field.Layout, logEvent);
@@ -243,6 +236,13 @@ namespace NLog.Targets.ElasticSearch
                         _jsonSerializer = null; // Reset as it might now be in bad state
                         InternalLogger.Error(ex, "ElasticSearch: Error while formatting field: {0}", field.Name);
                     }
+                }
+
+                if (logEvent.Exception != null && !document.ContainsKey("exception"))
+                {
+                    var jsonString = JsonConvert.SerializeObject(logEvent.Exception, _jsonSerializerSettings.Value);
+                    var ex = JsonConvert.DeserializeObject<ExpandoObject>(jsonString);
+                    document.Add("exception", ex.ReplaceDotInKeys());
                 }
 
                 if (IncludeAllProperties && logEvent.HasProperties)
