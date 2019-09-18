@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;net461</TargetFrameworks>
     <Description>An NLog target that utilises the elasticsearch low level client.</Description>
     <PackageLicenseUrl>https://raw.githubusercontent.com/ReactiveMarkets/NLog.Targets.ElasticSearch/master/LICENSE</PackageLicenseUrl>
     <PackageProjectUrl>https://github.com/ReactiveMarkets/NLog.Targets.ElasticSearch</PackageProjectUrl>
@@ -15,7 +15,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Elasticsearch.Net" Version="7.2.0" />
+    <PackageReference Include="Elasticsearch.Net" Version="7.2.1" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.1" />
     <PackageReference Include="NLog" Version="4.6.6" />
   </ItemGroup>
