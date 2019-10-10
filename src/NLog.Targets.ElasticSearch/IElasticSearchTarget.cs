@@ -19,6 +19,11 @@ namespace NLog.Targets.ElasticSearch
         string Uri { get; set; }
 
         /// <summary>
+        /// Gets or sets the elasticsearch cloud id.
+        /// </summary>
+        string CloudId { get; set; }
+
+        /// <summary>
         /// Set it to true if ElasticSearch uses BasicAuth
         /// </summary>
         bool RequireAuth { get; set; }
