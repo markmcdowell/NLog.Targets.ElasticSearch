@@ -17,6 +17,7 @@ namespace NLog.Targets.ElasticSearch
     {
         private IElasticLowLevelClient _client;
         private Layout _uri = "http://localhost:9200";
+        private Layout _cloudId;
         private Layout _username;
         private Layout _password;
         private HashSet<string> _excludedProperties = new HashSet<string>(new[] { "CallerMemberName", "CallerFilePath", "CallerLineNumber", "MachineName", "ThreadId" });
@@ -42,6 +43,23 @@ namespace NLog.Targets.ElasticSearch
             set
             {
                 _uri = value ?? string.Empty;
+
+                if (IsInitialized)
+                {
+                    InitializeTarget();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the elasticsearch cloud id.
+        /// </summary>
+        public string CloudId
+        {
+            get => (_cloudId as SimpleLayout)?.Text;
+            set
+            {
+                _cloudId = value ?? string.Empty;
 
                 if (IsInitialized)
                 {
@@ -135,19 +153,36 @@ namespace NLog.Targets.ElasticSearch
         {
             base.InitializeTarget();
 
-            var uri = _uri?.Render(LogEventInfo.CreateNullEvent()) ?? string.Empty;
-            var nodes = uri.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).Select(url => new Uri(url));
-            var connectionPool = new StaticConnectionPool(nodes);
+            IConnectionPool connectionPool;
 
-            var config = new ConnectionConfiguration(connectionPool);
+            var eventInfo = LogEventInfo.CreateNullEvent();
+            var cloudId = _cloudId?.Render(eventInfo) ?? string.Empty;
+            if (!String.IsNullOrWhiteSpace(cloudId))
+            {
+                var username = _username?.Render(eventInfo) ?? string.Empty;
+                var password = _password?.Render(eventInfo) ?? string.Empty;
+                connectionPool = new CloudConnectionPool(
+                    cloudId,
+                    new BasicAuthenticationCredentials(
+                        username,
+                        password));
+            }
+            else
+            {
+                var uri = _uri?.Render(eventInfo) ?? string.Empty;
+                var nodes = uri.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).Select(url => new Uri(url));
+                connectionPool = new StaticConnectionPool(nodes);
+                
+            }
 
-            if (ElasticsearchSerializer != null)
-                config = new ConnectionConfiguration(connectionPool, ElasticsearchSerializer);
+            var config = ElasticsearchSerializer == null
+                ? new ConnectionConfiguration(connectionPool)
+                : new ConnectionConfiguration(connectionPool, ElasticsearchSerializer);
 
             if (RequireAuth)
             {
-                var username = _username?.Render(LogEventInfo.CreateNullEvent()) ?? string.Empty;
-                var password = _password?.Render(LogEventInfo.CreateNullEvent()) ?? string.Empty;
+                var username = _username?.Render(eventInfo) ?? string.Empty;
+                var password = _password?.Render(eventInfo) ?? string.Empty;
                 config.BasicAuthentication(username, password);
             }
 
