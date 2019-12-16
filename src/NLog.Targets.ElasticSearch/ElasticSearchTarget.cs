@@ -1,17 +1,20 @@
-﻿using Elasticsearch.Net;
+﻿using System;
+using System.Collections.Generic;
+using System.Dynamic;
+using System.Linq;
+using System.Threading;
+using Elasticsearch.Net;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using NLog.Common;
 using NLog.Config;
 using NLog.Layouts;
-using System;
-using System.Collections.Generic;
-using System.Dynamic;
-using System.Linq;
-using System.Threading;
 
 namespace NLog.Targets.ElasticSearch
 {
+    /// <summary>
+    /// NLog Target for writing to ElasticSearch using low level client
+    /// </summary>
     [Target("ElasticSearch")]
     public class ElasticSearchTarget : TargetWithLayout, IElasticSearchTarget
     {
@@ -143,12 +146,16 @@ namespace NLog.Targets.ElasticSearch
         [Obsolete("No longer needed", true)]
         public bool ThrowExceptions { get; set; }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ElasticSearchTarget"/> class.
+        /// </summary>
         public ElasticSearchTarget()
         {
             Name = "ElasticSearch";
             OptimizeBufferReuse = true;
         }
 
+        /// <inheritdoc />
         protected override void InitializeTarget()
         {
             base.InitializeTarget();
@@ -201,11 +208,13 @@ namespace NLog.Targets.ElasticSearch
                 _excludedProperties = new HashSet<string>(ExcludedProperties.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
         }
 
+        /// <inheritdoc />
         protected override void Write(AsyncLogEventInfo logEvent)
         {
             SendBatch(new[] { logEvent });
         }
 
+        /// <inheritdoc />
         protected override void Write(IList<AsyncLogEventInfo> logEvents)
         {
             SendBatch(logEvents);

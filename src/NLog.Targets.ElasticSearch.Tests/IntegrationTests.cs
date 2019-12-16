@@ -48,6 +48,7 @@ namespace NLog.Targets.ElasticSearch.Tests
                 var config = new LoggingConfiguration();
                 config.LoggingRules.Add(rule);
 
+                LogManager.ThrowExceptions = true;
                 LogManager.Configuration = config;
 
                 var logger = LogManager.GetLogger("Example");
@@ -69,6 +70,7 @@ namespace NLog.Targets.ElasticSearch.Tests
             var config = new LoggingConfiguration();
             config.LoggingRules.Add(rule);
 
+            LogManager.ThrowExceptions = true;
             LogManager.Configuration = config;
 
             var logger = LogManager.GetLogger("Example");
@@ -89,6 +91,7 @@ namespace NLog.Targets.ElasticSearch.Tests
             var config = new LoggingConfiguration();
             config.LoggingRules.Add(rule);
 
+            LogManager.ThrowExceptions = true;
             LogManager.Configuration = config;
 
             var logger = LogManager.GetLogger("Example");
@@ -103,6 +106,7 @@ namespace NLog.Targets.ElasticSearch.Tests
         [Fact(Skip = "Integration")]
         public void ReadFromConfigTest()
         {
+            LogManager.ThrowExceptions = true;
             LogManager.Configuration = new XmlLoggingConfiguration("NLog.Targets.ElasticSearch.Tests.dll.config");
 
             var logger = LogManager.GetLogger("Example");
