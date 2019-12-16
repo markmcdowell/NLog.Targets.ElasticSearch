@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace NLog.Targets.ElasticSearch
 {
-    public static class ExpandoObjectExtensions
+    internal static class ExpandoObjectExtensions
     {
         /// <summary>
         /// Replaces dot ('.') character in Keys with an underscore ('_') 

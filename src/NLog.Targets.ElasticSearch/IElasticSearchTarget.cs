@@ -4,6 +4,9 @@ using NLog.Layouts;
 
 namespace NLog.Targets.ElasticSearch
 {
+    /// <summary>
+    /// Interface for NLog Target for writing to ElasticSearch
+    /// </summary>
     public interface IElasticSearchTarget
     {
         /// <summary>
