@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Net;
 using Elasticsearch.Net;
 using NLog.Layouts;
 
@@ -35,6 +36,14 @@ namespace NLog.Targets.ElasticSearch
         /// Username for basic auth
         /// </summary>
         string Username { get; set; }
+
+        /// <summary>
+        /// Gets or sets the proxy.
+        /// </summary>
+        /// <value>
+        /// The proxy.
+        /// </value>
+        WebProxy Proxy { get; set; }
 
         /// <summary>
         /// Password for basic auth
