@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Dynamic;
 using System.Linq;
 using System.Threading;
@@ -80,6 +81,9 @@ namespace NLog.Targets.ElasticSearch
         /// Username for basic auth
         /// </summary>
         public string Username { get => (_username as SimpleLayout)?.Text; set => _username = value ?? string.Empty; }
+
+        /// <inheritdoc />
+        public WebProxy Proxy { get; set; }
 
         /// <summary>
         /// Password for basic auth
@@ -198,6 +202,22 @@ namespace NLog.Targets.ElasticSearch
 
             if (DisablePing)
                 config.DisablePing();
+
+            if (Proxy != null)
+            {
+                if (Proxy.Credentials == null)
+                {
+                    throw new InvalidOperationException("Proxy credentials should be specified.");
+                }
+
+                if (!(Proxy.Credentials is NetworkCredential))
+                {
+                    throw new InvalidOperationException($"Type {Proxy.Credentials.GetType().FullName} of proxy credentials isn't supported. Use {typeof(NetworkCredential).FullName} instead.");
+                }
+
+                var credential = (NetworkCredential)Proxy.Credentials;
+                config.Proxy(Proxy.Address, credential.UserName, credential.SecurePassword);
+            }
 
             if (EnableHttpCompression)
                 config.EnableHttpCompression();
