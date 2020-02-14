@@ -56,6 +56,21 @@ namespace NLog.Targets.ElasticSearch
         bool DisableAutomaticProxyDetection { get; set; }
 
         /// <summary>
+        /// Set it to true to disable SSL certificate validation
+        /// </summary>
+        bool DisableCertificateValidation { get; set; }
+
+        /// <summary>
+        /// Set it to true to disable use of ping to checking if node is alive
+        /// </summary>
+        bool DisablePing { get; set; }
+
+        /// <summary>
+        /// Set it to true to enable HttpCompression (Must be enabled on server)
+        /// </summary>
+        bool EnableHttpCompression { get; set; }
+
+        /// <summary>
         /// Gets or sets the name of the elasticsearch index to write to.
         /// </summary>
         Layout Index { get; set; }

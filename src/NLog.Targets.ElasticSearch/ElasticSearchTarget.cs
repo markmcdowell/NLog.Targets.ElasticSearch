@@ -96,6 +96,11 @@ namespace NLog.Targets.ElasticSearch
         public bool DisableAutomaticProxyDetection { get; set; }
 
         /// <summary>
+        /// Set it to true to disable SSL certificate validation
+        /// </summary>
+        public bool DisableCertificateValidation { get; set; }
+
+        /// <summary>
         /// Set it to true to disable use of ping to checking if node is alive
         /// </summary>
         public bool DisablePing { get; set; }
@@ -194,14 +199,17 @@ namespace NLog.Targets.ElasticSearch
             {
                 var username = _username?.Render(eventInfo) ?? string.Empty;
                 var password = _password?.Render(eventInfo) ?? string.Empty;
-                config.BasicAuthentication(username, password);
+                config = config.BasicAuthentication(username, password);
             }
 
             if (DisableAutomaticProxyDetection)
-                config.DisableAutomaticProxyDetection();
+                config = config.DisableAutomaticProxyDetection();
+
+            if (DisableCertificateValidation)
+                config = config.ServerCertificateValidationCallback((o, certificate, chain, errors) => true).ServerCertificateValidationCallback(CertificateValidations.AllowAll);
 
             if (DisablePing)
-                config.DisablePing();
+                config = config.DisablePing();
 
             if (Proxy != null)
             {
@@ -220,7 +228,7 @@ namespace NLog.Targets.ElasticSearch
             }
 
             if (EnableHttpCompression)
-                config.EnableHttpCompression();
+                config = config.EnableHttpCompression();
 
             _client = new ElasticLowLevelClient(config);
 
