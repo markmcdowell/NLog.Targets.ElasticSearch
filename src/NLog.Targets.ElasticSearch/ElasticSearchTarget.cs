@@ -82,13 +82,28 @@ namespace NLog.Targets.ElasticSearch
         /// </summary>
         public string Username { get => (_username as SimpleLayout)?.Text; set => _username = value ?? string.Empty; }
 
-        /// <inheritdoc />
-        public WebProxy Proxy { get; set; }
-
         /// <summary>
         /// Password for basic auth
         /// </summary>
         public string Password { get => (_password as SimpleLayout)?.Text; set => _password = value ?? string.Empty; }
+
+        /// <inheritdoc />
+        public WebProxy Proxy { get; set; }
+
+        /// <summary>
+        /// Gets or sets the proxy address
+        /// </summary>
+        public Layout ProxyAddress { get; set; }
+
+        /// <summary>
+        /// Gets or sets the proxy username
+        /// </summary>
+        public Layout ProxyUserName { get; set; }
+
+        /// <summary>
+        /// Gets or sets the proxy password
+        /// </summary>
+        public Layout ProxyPassword { get; set; }
 
         /// <summary>
         /// Set it to true to disable proxy detection
@@ -187,8 +202,7 @@ namespace NLog.Targets.ElasticSearch
             {
                 var uri = _uri?.Render(eventInfo) ?? string.Empty;
                 var nodes = uri.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).Select(url => new Uri(url));
-                connectionPool = new StaticConnectionPool(nodes);
-                
+                connectionPool = new StaticConnectionPool(nodes);  
             }
 
             var config = ElasticsearchSerializer == null
@@ -224,7 +238,17 @@ namespace NLog.Targets.ElasticSearch
                 }
 
                 var credential = (NetworkCredential)Proxy.Credentials;
-                config.Proxy(Proxy.Address, credential.UserName, credential.SecurePassword);
+                config = config.Proxy(Proxy.Address, credential.UserName, credential.SecurePassword);
+            }
+            else if (ProxyAddress != null)
+            {
+                var proxyAddress = ProxyAddress.Render(eventInfo);
+                var proxyUserName = ProxyUserName?.Render(eventInfo) ?? string.Empty;
+                var proxyPassword = ProxyPassword?.Render(eventInfo) ?? string.Empty;
+                if (!string.IsNullOrEmpty(proxyAddress))
+                {
+                    config = config.Proxy(new Uri(proxyAddress), proxyUserName, proxyPassword);
+                }
             }
 
             if (EnableHttpCompression)

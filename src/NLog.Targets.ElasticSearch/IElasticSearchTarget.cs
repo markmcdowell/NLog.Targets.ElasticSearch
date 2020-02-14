@@ -38,17 +38,29 @@ namespace NLog.Targets.ElasticSearch
         string Username { get; set; }
 
         /// <summary>
-        /// Gets or sets the proxy.
-        /// </summary>
-        /// <value>
-        /// The proxy.
-        /// </value>
-        WebProxy Proxy { get; set; }
-
-        /// <summary>
         /// Password for basic auth
         /// </summary>
         string Password { get; set; }
+
+        /// <summary>
+        /// Gets or sets the proxy-destination
+        /// </summary>
+        WebProxy Proxy { get; set; }
+
+        /// <summary>
+        /// Gets or sets the proxy address
+        /// </summary>
+        Layout ProxyAddress { get; set; }
+
+        /// <summary>
+        /// Gets or sets the proxy username
+        /// </summary>
+        Layout ProxyUserName { get; set; }
+
+        /// <summary>
+        /// Gets or sets the proxy password
+        /// </summary>
+        Layout ProxyPassword { get; set; }
 
         /// <summary>
         /// Set it to true to disable proxy detection
