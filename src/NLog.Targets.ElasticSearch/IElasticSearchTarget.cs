@@ -38,22 +38,49 @@ namespace NLog.Targets.ElasticSearch
         string Username { get; set; }
 
         /// <summary>
-        /// Gets or sets the proxy.
-        /// </summary>
-        /// <value>
-        /// The proxy.
-        /// </value>
-        WebProxy Proxy { get; set; }
-
-        /// <summary>
         /// Password for basic auth
         /// </summary>
         string Password { get; set; }
 
         /// <summary>
+        /// Gets or sets the proxy-destination
+        /// </summary>
+        WebProxy Proxy { get; set; }
+
+        /// <summary>
+        /// Gets or sets the proxy address
+        /// </summary>
+        Layout ProxyAddress { get; set; }
+
+        /// <summary>
+        /// Gets or sets the proxy username
+        /// </summary>
+        Layout ProxyUserName { get; set; }
+
+        /// <summary>
+        /// Gets or sets the proxy password
+        /// </summary>
+        Layout ProxyPassword { get; set; }
+
+        /// <summary>
         /// Set it to true to disable proxy detection
         /// </summary>
         bool DisableAutomaticProxyDetection { get; set; }
+
+        /// <summary>
+        /// Set it to true to disable SSL certificate validation
+        /// </summary>
+        bool DisableCertificateValidation { get; set; }
+
+        /// <summary>
+        /// Set it to true to disable use of ping to checking if node is alive
+        /// </summary>
+        bool DisablePing { get; set; }
+
+        /// <summary>
+        /// Set it to true to enable HttpCompression (Must be enabled on server)
+        /// </summary>
+        bool EnableHttpCompression { get; set; }
 
         /// <summary>
         /// Gets or sets the name of the elasticsearch index to write to.
