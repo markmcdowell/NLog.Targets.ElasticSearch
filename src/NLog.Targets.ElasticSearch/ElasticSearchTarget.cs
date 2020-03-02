@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Net;
-using System.Dynamic;
 using System.Linq;
 using System.Threading;
 using Elasticsearch.Net;
@@ -26,9 +25,12 @@ namespace NLog.Targets.ElasticSearch
         private Layout _password;
         private HashSet<string> _excludedProperties = new HashSet<string>(new[] { "CallerMemberName", "CallerFilePath", "CallerLineNumber", "MachineName", "ThreadId" });
         private JsonSerializer _jsonSerializer;
-        private readonly Lazy<JsonSerializerSettings> _jsonSerializerSettings = new Lazy<JsonSerializerSettings>(CreateJsonSerializerSettings, LazyThreadSafetyMode.PublicationOnly);
+        private JsonSerializer _flatJsonSerializer;
+        private readonly Lazy<JsonSerializerSettings> _jsonSerializerSettings = new Lazy<JsonSerializerSettings>(() => CreateJsonSerializerSettings(false), LazyThreadSafetyMode.PublicationOnly);
+        private readonly Lazy<JsonSerializerSettings> _flatSerializerSettings = new Lazy<JsonSerializerSettings>(() => CreateJsonSerializerSettings(true), LazyThreadSafetyMode.PublicationOnly);
 
         private JsonSerializer JsonSerializer => _jsonSerializer ?? (_jsonSerializer = JsonSerializer.CreateDefault(_jsonSerializerSettings.Value));
+        private JsonSerializer JsonSerializerFlat => _flatJsonSerializer ?? (_flatJsonSerializer = JsonSerializer.CreateDefault(_flatSerializerSettings.Value));
 
         /// <summary>
         /// Gets or sets a connection string name to retrieve the Uri from.
@@ -169,6 +171,11 @@ namespace NLog.Targets.ElasticSearch
         /// </summary>
         [Obsolete("No longer needed", true)]
         public bool ThrowExceptions { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether it should perform safe object-reflection (-1 = Unsafe, 0 - No Reflection, 1 - Simple Reflection, 2 - Full Reflection)
+        /// </summary>
+        public int MaxRecursionLimit { get; set; } = -1;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ElasticSearchTarget"/> class.
@@ -336,9 +343,7 @@ namespace NLog.Targets.ElasticSearch
 
                 if (logEvent.Exception != null && !document.ContainsKey("exception"))
                 {
-                    var jsonString = JsonConvert.SerializeObject(logEvent.Exception, _jsonSerializerSettings.Value);
-                    var ex = JsonConvert.DeserializeObject<ExpandoObject>(jsonString);
-                    document.Add("exception", ex.ReplaceDotInKeys());
+                    document.Add("exception", FormatValueSafe(logEvent.Exception, "exception"));
                 }
 
                 if (IncludeAllProperties && logEvent.HasProperties)
@@ -348,10 +353,15 @@ namespace NLog.Targets.ElasticSearch
                         var propertyKey = p.Key.ToString();
                         if (_excludedProperties.Contains(propertyKey))
                             continue;
-                        if (document.ContainsKey(propertyKey))
-                            continue;
 
-                        document[propertyKey] = p.Value;
+                        if (document.ContainsKey(propertyKey))
+                        {
+                            propertyKey += "_1";
+                            if (document.ContainsKey(propertyKey))
+                                continue;
+                        }
+
+                        document[propertyKey] = FormatValueSafe(p.Value, propertyKey);
                     }
                 }
 
@@ -374,16 +384,135 @@ namespace NLog.Targets.ElasticSearch
             return PostData.MultiJson(payload);
         }
 
-        private static JsonSerializerSettings CreateJsonSerializerSettings()
+        private object FormatValueSafe(object value, string propertyName)
         {
-            var jsonSerializerSettings = new JsonSerializerSettings { ReferenceLoopHandling = ReferenceLoopHandling.Ignore, CheckAdditionalContent = true };
+            try
+            {
+                if (value is Exception)
+                {
+                    if (MaxRecursionLimit == 0 || MaxRecursionLimit == 1)
+                        return FormatToExpandoObject(value, JsonSerializerFlat);
+                    else
+                        return FormatToExpandoObject(value, JsonSerializer);
+                }
+                else if (MaxRecursionLimit >= 0)
+                {
+                    if (Convert.GetTypeCode(value) != TypeCode.Object || value.GetType().IsValueType)
+                    {
+                        return value;
+                    }
+                    else if (MaxRecursionLimit == 0)
+                    {
+                        if (value is System.Collections.IEnumerable)
+                            return null;
+                        else
+                            return value.ToString();
+                    }
+                    else if (JsonSerializer.ContractResolver.ResolveContract(value.GetType()) is Newtonsoft.Json.Serialization.JsonObjectContract)
+                    {
+                        if (MaxRecursionLimit == 1)
+                        {
+                            return FormatToExpandoObject(value, JsonSerializerFlat);
+                        }
+                        else if (MaxRecursionLimit > 1)
+                        {
+                            return FormatToExpandoObject(value, JsonSerializer);
+                        }
+                    }
+                }
+
+                return value;
+            }
+            catch (Exception ex)
+            {
+                _jsonSerializer = null; // Reset as it might now be in bad state
+                _flatJsonSerializer = null;
+                InternalLogger.Error(ex, "ElasticSearch: Error while formatting property: {0}", propertyName);
+                return null;
+            }
+        }
+
+        private static object FormatToExpandoObject(object value, JsonSerializer jsonSerializer)
+        {
+            var sb = new System.Text.StringBuilder(256);
+            var sw = new System.IO.StringWriter(sb, System.Globalization.CultureInfo.InvariantCulture);
+            using (JsonTextWriter jsonWriter = new JsonTextWriter(sw))
+            {
+                jsonWriter.Formatting = jsonSerializer.Formatting;
+                jsonSerializer.Serialize(jsonWriter, value, value.GetType());
+            }
+            var expandoObject = sb.ToString().ToSystemType(typeof(object), null, jsonSerializer);
+            if (value is Exception && expandoObject is IDictionary<string, object> dictionary)
+            {
+                dictionary["Type"] = value.GetType().ToString();
+            }
+            return expandoObject;
+        }
+
+        private static JsonSerializerSettings CreateJsonSerializerSettings(bool specialPropertyResolver)
+        {
+            var jsonSerializerSettings = new JsonSerializerSettings { ReferenceLoopHandling = ReferenceLoopHandling.Ignore, NullValueHandling = NullValueHandling.Ignore, CheckAdditionalContent = true };
             jsonSerializerSettings.Converters.Add(new StringEnumConverter());
             jsonSerializerSettings.Error = (sender, args) =>
             {
                 InternalLogger.Warn(args.ErrorContext.Error, $"Error serializing exception property '{args.ErrorContext.Member}', property ignored");
                 args.ErrorContext.Handled = true;
             };
+            if (specialPropertyResolver)
+            {
+                jsonSerializerSettings.ContractResolver = new FlatObjectContractResolver();
+            }
             return jsonSerializerSettings;
+        }
+
+        /// <summary>
+        /// Serializes all non-simple properties as object.ToString()
+        /// </summary>
+        private sealed class FlatObjectContractResolver : Newtonsoft.Json.Serialization.DefaultContractResolver
+        {
+            private readonly FlatObjectConverter _flatObjectConverter = new FlatObjectConverter();
+
+            protected override Newtonsoft.Json.Serialization.JsonProperty CreateProperty(System.Reflection.MemberInfo member, MemberSerialization memberSerialization)
+            {
+                var jsonProperty = base.CreateProperty(member, memberSerialization);
+                if (jsonProperty.Readable && !IsSimpleType(jsonProperty.PropertyType))
+                    jsonProperty.Converter = _flatObjectConverter;
+                return jsonProperty;
+            }
+
+            private static bool IsSimpleType(Type propertyType)
+            {
+                return propertyType != null && (Type.GetTypeCode(propertyType) != TypeCode.Object || propertyType.IsValueType);
+            }
+
+            private class FlatObjectConverter : JsonConverter
+            {
+                public override bool CanConvert(Type objectType)
+                {
+                    return true;
+                }
+
+                public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
+                {
+                    return null;
+                }
+
+                public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+                {
+                    if (value == null)
+                    {
+                        writer.WriteNull();
+                    }
+                    else if (value is System.Collections.IEnumerable)
+                    {
+                        writer.WriteNull();
+                    }
+                    else
+                    {
+                        writer.WriteValue(value.ToString());
+                    }
+                }
+            }
         }
     }
 }
