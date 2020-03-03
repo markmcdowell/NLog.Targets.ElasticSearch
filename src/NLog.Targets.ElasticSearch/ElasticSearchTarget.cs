@@ -388,40 +388,8 @@ namespace NLog.Targets.ElasticSearch
         {
             try
             {
-                if (value is Exception)
-                {
-                    if (MaxRecursionLimit == 0 || MaxRecursionLimit == 1)
-                        return FormatToExpandoObject(value, JsonSerializerFlat);
-                    else
-                        return FormatToExpandoObject(value, JsonSerializer);
-                }
-                else if (MaxRecursionLimit >= 0)
-                {
-                    if (Convert.GetTypeCode(value) != TypeCode.Object || value.GetType().IsValueType)
-                    {
-                        return value;
-                    }
-                    else if (MaxRecursionLimit == 0)
-                    {
-                        if (value is System.Collections.IEnumerable)
-                            return null;
-                        else
-                            return value.ToString();
-                    }
-                    else if (JsonSerializer.ContractResolver.ResolveContract(value.GetType()) is Newtonsoft.Json.Serialization.JsonObjectContract)
-                    {
-                        if (MaxRecursionLimit == 1)
-                        {
-                            return FormatToExpandoObject(value, JsonSerializerFlat);
-                        }
-                        else if (MaxRecursionLimit > 1)
-                        {
-                            return FormatToExpandoObject(value, JsonSerializer);
-                        }
-                    }
-                }
-
-                return value;
+                var jsonSerializer = (MaxRecursionLimit == 0 || MaxRecursionLimit == 1) ? JsonSerializerFlat : JsonSerializer;
+                return ObjectConverter.FormatValueSafe(value, MaxRecursionLimit, jsonSerializer);
             }
             catch (Exception ex)
             {
@@ -430,23 +398,6 @@ namespace NLog.Targets.ElasticSearch
                 InternalLogger.Error(ex, "ElasticSearch: Error while formatting property: {0}", propertyName);
                 return null;
             }
-        }
-
-        private static object FormatToExpandoObject(object value, JsonSerializer jsonSerializer)
-        {
-            var sb = new System.Text.StringBuilder(256);
-            var sw = new System.IO.StringWriter(sb, System.Globalization.CultureInfo.InvariantCulture);
-            using (JsonTextWriter jsonWriter = new JsonTextWriter(sw))
-            {
-                jsonWriter.Formatting = jsonSerializer.Formatting;
-                jsonSerializer.Serialize(jsonWriter, value, value.GetType());
-            }
-            var expandoObject = sb.ToString().ToSystemType(typeof(object), null, jsonSerializer);
-            if (value is Exception && expandoObject is IDictionary<string, object> dictionary)
-            {
-                dictionary["Type"] = value.GetType().ToString();
-            }
-            return expandoObject;
         }
 
         private static JsonSerializerSettings CreateJsonSerializerSettings(bool specialPropertyResolver)
@@ -463,56 +414,6 @@ namespace NLog.Targets.ElasticSearch
                 jsonSerializerSettings.ContractResolver = new FlatObjectContractResolver();
             }
             return jsonSerializerSettings;
-        }
-
-        /// <summary>
-        /// Serializes all non-simple properties as object.ToString()
-        /// </summary>
-        private sealed class FlatObjectContractResolver : Newtonsoft.Json.Serialization.DefaultContractResolver
-        {
-            private readonly FlatObjectConverter _flatObjectConverter = new FlatObjectConverter();
-
-            protected override Newtonsoft.Json.Serialization.JsonProperty CreateProperty(System.Reflection.MemberInfo member, MemberSerialization memberSerialization)
-            {
-                var jsonProperty = base.CreateProperty(member, memberSerialization);
-                if (jsonProperty.Readable && !IsSimpleType(jsonProperty.PropertyType))
-                    jsonProperty.Converter = _flatObjectConverter;
-                return jsonProperty;
-            }
-
-            private static bool IsSimpleType(Type propertyType)
-            {
-                return propertyType != null && (Type.GetTypeCode(propertyType) != TypeCode.Object || propertyType.IsValueType);
-            }
-
-            private class FlatObjectConverter : JsonConverter
-            {
-                public override bool CanConvert(Type objectType)
-                {
-                    return true;
-                }
-
-                public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
-                {
-                    return null;
-                }
-
-                public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
-                {
-                    if (value == null)
-                    {
-                        writer.WriteNull();
-                    }
-                    else if (value is System.Collections.IEnumerable)
-                    {
-                        writer.WriteNull();
-                    }
-                    else
-                    {
-                        writer.WriteValue(value.ToString());
-                    }
-                }
-            }
         }
     }
 }

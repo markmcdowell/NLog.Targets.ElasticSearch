@@ -26,12 +26,17 @@ namespace NLog.Targets.ElasticSearch
                 case "System.Int64":
                     return Convert.ToInt64(field, formatProvider);
                 case "System.Object":
-                    using (var reader = new JsonTextReader(new StringReader(field)))
-                    {
-                        return ((ExpandoObject)jsonSerializer.Deserialize(reader, typeof(ExpandoObject))).ReplaceDotInKeys(alwaysCloneObject: false);
-                    }
+                    return field.ToExpandoObject(jsonSerializer);
                 default:
                     return field;
+            }
+        }
+
+        public static ExpandoObject ToExpandoObject(this string field, JsonSerializer jsonSerializer)
+        {
+            using (var reader = new JsonTextReader(new StringReader(field)))
+            {
+                return ((ExpandoObject)jsonSerializer.Deserialize(reader, typeof(ExpandoObject))).ReplaceDotInKeys(alwaysCloneObject: false);
             }
         }
     }
