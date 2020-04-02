@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Net;
-using System.Dynamic;
 using System.Linq;
 using System.Threading;
 using Elasticsearch.Net;
@@ -26,9 +25,12 @@ namespace NLog.Targets.ElasticSearch
         private Layout _password;
         private HashSet<string> _excludedProperties = new HashSet<string>(new[] { "CallerMemberName", "CallerFilePath", "CallerLineNumber", "MachineName", "ThreadId" });
         private JsonSerializer _jsonSerializer;
-        private readonly Lazy<JsonSerializerSettings> _jsonSerializerSettings = new Lazy<JsonSerializerSettings>(CreateJsonSerializerSettings, LazyThreadSafetyMode.PublicationOnly);
+        private JsonSerializer _flatJsonSerializer;
+        private readonly Lazy<JsonSerializerSettings> _jsonSerializerSettings = new Lazy<JsonSerializerSettings>(() => CreateJsonSerializerSettings(false), LazyThreadSafetyMode.PublicationOnly);
+        private readonly Lazy<JsonSerializerSettings> _flatSerializerSettings = new Lazy<JsonSerializerSettings>(() => CreateJsonSerializerSettings(true), LazyThreadSafetyMode.PublicationOnly);
 
         private JsonSerializer JsonSerializer => _jsonSerializer ?? (_jsonSerializer = JsonSerializer.CreateDefault(_jsonSerializerSettings.Value));
+        private JsonSerializer JsonSerializerFlat => _flatJsonSerializer ?? (_flatJsonSerializer = JsonSerializer.CreateDefault(_flatSerializerSettings.Value));
 
         /// <summary>
         /// Gets or sets a connection string name to retrieve the Uri from.
@@ -169,6 +171,11 @@ namespace NLog.Targets.ElasticSearch
         /// </summary>
         [Obsolete("No longer needed", true)]
         public bool ThrowExceptions { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether it should perform safe object-reflection (-1 = Unsafe, 0 - No Reflection, 1 - Simple Reflection, 2 - Full Reflection)
+        /// </summary>
+        public int MaxRecursionLimit { get; set; } = -1;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ElasticSearchTarget"/> class.
@@ -336,9 +343,7 @@ namespace NLog.Targets.ElasticSearch
 
                 if (logEvent.Exception != null && !document.ContainsKey("exception"))
                 {
-                    var jsonString = JsonConvert.SerializeObject(logEvent.Exception, _jsonSerializerSettings.Value);
-                    var ex = JsonConvert.DeserializeObject<ExpandoObject>(jsonString);
-                    document.Add("exception", ex.ReplaceDotInKeys());
+                    document.Add("exception", FormatValueSafe(logEvent.Exception, "exception"));
                 }
 
                 if (IncludeAllProperties && logEvent.HasProperties)
@@ -348,10 +353,15 @@ namespace NLog.Targets.ElasticSearch
                         var propertyKey = p.Key.ToString();
                         if (_excludedProperties.Contains(propertyKey))
                             continue;
-                        if (document.ContainsKey(propertyKey))
-                            continue;
 
-                        document[propertyKey] = p.Value;
+                        if (document.ContainsKey(propertyKey))
+                        {
+                            propertyKey += "_1";
+                            if (document.ContainsKey(propertyKey))
+                                continue;
+                        }
+
+                        document[propertyKey] = FormatValueSafe(p.Value, propertyKey);
                     }
                 }
 
@@ -374,15 +384,35 @@ namespace NLog.Targets.ElasticSearch
             return PostData.MultiJson(payload);
         }
 
-        private static JsonSerializerSettings CreateJsonSerializerSettings()
+        private object FormatValueSafe(object value, string propertyName)
         {
-            var jsonSerializerSettings = new JsonSerializerSettings { ReferenceLoopHandling = ReferenceLoopHandling.Ignore, CheckAdditionalContent = true };
+            try
+            {
+                var jsonSerializer = (MaxRecursionLimit == 0 || MaxRecursionLimit == 1) ? JsonSerializerFlat : JsonSerializer;
+                return ObjectConverter.FormatValueSafe(value, MaxRecursionLimit, jsonSerializer);
+            }
+            catch (Exception ex)
+            {
+                _jsonSerializer = null; // Reset as it might now be in bad state
+                _flatJsonSerializer = null;
+                InternalLogger.Error(ex, "ElasticSearch: Error while formatting property: {0}", propertyName);
+                return null;
+            }
+        }
+
+        private static JsonSerializerSettings CreateJsonSerializerSettings(bool specialPropertyResolver)
+        {
+            var jsonSerializerSettings = new JsonSerializerSettings { ReferenceLoopHandling = ReferenceLoopHandling.Ignore, NullValueHandling = NullValueHandling.Ignore, CheckAdditionalContent = true };
             jsonSerializerSettings.Converters.Add(new StringEnumConverter());
             jsonSerializerSettings.Error = (sender, args) =>
             {
                 InternalLogger.Warn(args.ErrorContext.Error, $"Error serializing exception property '{args.ErrorContext.Member}', property ignored");
                 args.ErrorContext.Handled = true;
             };
+            if (specialPropertyResolver)
+            {
+                jsonSerializerSettings.ContractResolver = new FlatObjectContractResolver();
+            }
             return jsonSerializerSettings;
         }
     }
