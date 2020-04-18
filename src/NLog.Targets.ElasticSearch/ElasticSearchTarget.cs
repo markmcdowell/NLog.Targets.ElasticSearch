@@ -404,6 +404,9 @@ namespace NLog.Targets.ElasticSearch
         {
             var jsonSerializerSettings = new JsonSerializerSettings { ReferenceLoopHandling = ReferenceLoopHandling.Ignore, NullValueHandling = NullValueHandling.Ignore, CheckAdditionalContent = true };
             jsonSerializerSettings.Converters.Add(new StringEnumConverter());
+            jsonSerializerSettings.Converters.Add(new JsonToStringConverter(typeof(System.Reflection.Assembly)));
+            jsonSerializerSettings.Converters.Add(new JsonToStringConverter(typeof(System.Reflection.Module)));
+            jsonSerializerSettings.Converters.Add(new JsonToStringConverter(typeof(System.Reflection.MethodInfo)));
             jsonSerializerSettings.Error = (sender, args) =>
             {
                 InternalLogger.Warn(args.ErrorContext.Error, $"Error serializing exception property '{args.ErrorContext.Member}', property ignored");
