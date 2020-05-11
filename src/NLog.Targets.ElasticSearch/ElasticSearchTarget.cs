@@ -130,6 +130,7 @@ namespace NLog.Targets.ElasticSearch
         /// <summary>
         /// Gets or sets the name of the elasticsearch index to write to.
         /// </summary>
+        [RequiredParameter]
         public Layout Index { get; set; } = "logstash-${date:format=yyyy.MM.dd}";
 
         /// <summary>
@@ -145,8 +146,7 @@ namespace NLog.Targets.ElasticSearch
         /// <summary>
         /// Gets or sets the document type for the elasticsearch index.
         /// </summary>
-        [RequiredParameter]
-        public Layout DocumentType { get; set; } = "logevent";
+        public Layout DocumentType { get; set; } = "_doc";
 
         /// <summary>
         /// Gets or sets the pipeline transformation
@@ -290,7 +290,20 @@ namespace NLog.Targets.ElasticSearch
                 var exception = result.Success ? null : result.OriginalException ?? new Exception("No error message. Enable Trace logging for more information.");
                 if (exception != null)
                 {
-                    InternalLogger.Error(exception.FlattenToActualException(), $"ElasticSearch: Failed to send log messages. status={result.HttpStatusCode}");
+                    InternalLogger.Error(exception.FlattenToActualException(), $"ElasticSearch: Failed to send log messages. Status={result.HttpStatusCode} Uri={result.Uri}");
+                }
+                else if (InternalLogger.IsTraceEnabled)
+                {
+                    InternalLogger.Trace("ElasticSearch: Send Log DebugInfo={0}", result.DebugInformation);
+                }
+                else if (InternalLogger.IsDebugEnabled)
+                {
+                    var warnings = result.DeprecationWarnings;
+                    if (warnings.Any())
+                    {
+                        string warningInfo = string.Join(", ", result.DeprecationWarnings);
+                        InternalLogger.Debug("ElasticSearch: Send Log Warnings={0}", warningInfo);
+                    }
                 }
 
                 foreach (var ev in logEvents)
@@ -367,21 +380,32 @@ namespace NLog.Targets.ElasticSearch
 
                 var index = RenderLogEvent(Index, logEvent).ToLowerInvariant();
                 var type = RenderLogEvent(DocumentType, logEvent);
+                var pipeLine = RenderLogEvent(Pipeline, logEvent);
 
-                object documentInfo;
-                if (Pipeline == null)
-                    documentInfo = new { index = new { _index = index, _type = type } };
-                else
-                {
-                    var pipeLine = RenderLogEvent(Pipeline, logEvent);
-                    documentInfo = new { index = new { _index = index, _type = type, pipeline = pipeLine } };
-                }
-
+                var documentInfo = GenerateDocumentInfo(index, type, pipeLine);
                 payload.Add(documentInfo);
                 payload.Add(document);
             }
 
             return PostData.MultiJson(payload);
+        }
+
+        private static object GenerateDocumentInfo(string index, string type, string pipeLine)
+        {
+            if (string.IsNullOrEmpty(pipeLine))
+            {
+                if (string.IsNullOrEmpty(type))
+                    return new { index = new { _index = index } };
+                else
+                    return new { index = new { _index = index, _type = type } };
+            }
+            else
+            {
+                if (string.IsNullOrEmpty(type))
+                    return new { index = new { _index = index, pipeline = pipeLine } };
+                else
+                    return new { index = new { _index = index, _type = type, pipeline = pipeLine } };
+            }
         }
 
         private object FormatValueSafe(object value, string propertyName)
