@@ -81,6 +81,41 @@ namespace NLog.Targets.ElasticSearch.Tests
         }
 
         [Fact(Skip = "Integration")]
+        public void SimpleJsonLayoutTest()
+        {
+            var elasticTarget = new ElasticSearchTarget();
+            elasticTarget.EnableJsonLayout = true;
+            elasticTarget.Layout = new JsonLayout()
+            {
+                MaxRecursionLimit = 10,
+                IncludeAllProperties = true,
+                Attributes =
+                    {
+                        new JsonAttribute("timestamp", "${date:universaltime=true:format=o}"),
+                        new JsonAttribute("lvl", "${level}"),
+                        new JsonAttribute("msg", "${message}"),
+                        new JsonAttribute("logger", "${logger}"),
+                        new JsonAttribute("threadid", "${threadid}", false), // Skip quotes for integer-value
+                    }
+            };
+
+            var rule = new LoggingRule("*", elasticTarget);
+            rule.EnableLoggingForLevel(LogLevel.Info);
+
+            var config = new LoggingConfiguration();
+            config.LoggingRules.Add(rule);
+
+            LogManager.ThrowExceptions = true;
+            LogManager.Configuration = config;
+
+            var logger = LogManager.GetLogger("Example");
+
+            logger.Info("Hello elasticsearch");
+
+            LogManager.Flush();
+        }
+
+        [Fact(Skip = "Integration")]
         public void ExceptionTest()
         {
             var elasticTarget = new ElasticSearchTarget();
