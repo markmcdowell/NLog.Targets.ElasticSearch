@@ -32,6 +32,8 @@ namespace NLog.Targets.ElasticSearch
         private JsonSerializer JsonSerializer => _jsonSerializer ?? (_jsonSerializer = JsonSerializer.CreateDefault(_jsonSerializerSettings.Value));
         private JsonSerializer JsonSerializerFlat => _flatJsonSerializer ?? (_flatJsonSerializer = JsonSerializer.CreateDefault(_flatSerializerSettings.Value));
 
+        private JsonLayout _documentInfoJsonLayout;
+
         /// <summary>
         /// Gets or sets a connection string name to retrieve the Uri from.
         ///
@@ -178,6 +180,11 @@ namespace NLog.Targets.ElasticSearch
         public int MaxRecursionLimit { get; set; } = -1;
 
         /// <summary>
+        /// Take the raw output from configured JsonLayout and send as document (Instead of creating expando-object for document serialization)
+        /// </summary>
+        public bool EnableJsonLayout { get; set; }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="ElasticSearchTarget"/> class.
         /// </summary>
         public ElasticSearchTarget()
@@ -265,6 +272,28 @@ namespace NLog.Targets.ElasticSearch
 
             if (!string.IsNullOrEmpty(ExcludedProperties))
                 _excludedProperties = new HashSet<string>(ExcludedProperties.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
+
+            if (EnableJsonLayout)
+            {
+                if (Layout is SimpleLayout)
+                {
+                    InternalLogger.Info("ElasticSearch: Layout-property has type SimpleLayout, instead of the expected JsonLayout");
+                }
+
+                _documentInfoJsonLayout = new JsonLayout()
+                {
+                    Attributes = {
+                        new JsonAttribute("index", new JsonLayout()
+                        {
+                            Attributes = {
+                                new JsonAttribute("_index", Index) { EscapeForwardSlash = false },
+                                new JsonAttribute("_type", DocumentType) { EscapeForwardSlash = false },
+                                new JsonAttribute("pipeline", Pipeline) { EscapeForwardSlash = false },
+                            }
+                        }, encode: false)
+                    }
+                };
+            }
         }
 
         /// <inheritdoc />
@@ -283,7 +312,7 @@ namespace NLog.Targets.ElasticSearch
         {
             try
             {
-                var payload = FormPayload(logEvents);
+                var payload = EnableJsonLayout ? FromPayloadWithJsonLayout(logEvents) : FormPayload(logEvents);
 
                 var result = _client.Bulk<BytesResponse>(payload);
 
@@ -321,6 +350,24 @@ namespace NLog.Targets.ElasticSearch
             }
         }
 
+        private PostData FromPayloadWithJsonLayout(ICollection<AsyncLogEventInfo> logEvents)
+        {
+            var payload = new List<string>(logEvents.Count * 2);    // documentInfo + document
+
+            foreach (var ev in logEvents)
+            {
+                var logEvent = ev.LogEvent;
+
+                var documentInfo = RenderLogEvent(_documentInfoJsonLayout, logEvent);
+                var document = RenderLogEvent(Layout, logEvent);
+
+                payload.Add(documentInfo);
+                payload.Add(document);
+            }
+
+            return PostData.MultiJson(payload);
+        }
+
         private PostData FormPayload(ICollection<AsyncLogEventInfo> logEvents)
         {
             var payload = new List<object>(logEvents.Count * 2);    // documentInfo + document
@@ -329,65 +376,72 @@ namespace NLog.Targets.ElasticSearch
             {
                 var logEvent = ev.LogEvent;
 
-                var document = new Dictionary<string, object>
+                var index = RenderLogEvent(Index, logEvent).ToLowerInvariant();
+                var type = RenderLogEvent(DocumentType, logEvent);
+                var pipeLine = RenderLogEvent(Pipeline, logEvent);
+
+                var documentInfo = GenerateDocumentInfo(index, type, pipeLine);
+                var document = GenerateDocumentProperties(logEvent);
+
+                payload.Add(documentInfo);
+                payload.Add(document);
+            }
+
+            return PostData.MultiJson(payload);
+        }
+
+        private Dictionary<string, object> GenerateDocumentProperties(LogEventInfo logEvent)
+        {
+            var document = new Dictionary<string, object>
                 {
                     {"@timestamp", logEvent.TimeStamp},
                     {"level", logEvent.Level.Name},
                     {"message", RenderLogEvent(Layout, logEvent)}
                 };
 
-                foreach (var field in Fields)
+            foreach (var field in Fields)
+            {
+                var renderedField = RenderLogEvent(field.Layout, logEvent);
+
+                if (string.IsNullOrWhiteSpace(renderedField))
+                    continue;
+
+                try
                 {
-                    var renderedField = RenderLogEvent(field.Layout, logEvent);
-
-                    if (string.IsNullOrWhiteSpace(renderedField))
-                        continue;
-
-                    try
-                    {
-                        document[field.Name] = renderedField.ToSystemType(field.LayoutType, logEvent.FormatProvider, JsonSerializer);
-                    }
-                    catch (Exception ex)
-                    {
-                        _jsonSerializer = null; // Reset as it might now be in bad state
-                        InternalLogger.Error(ex, "ElasticSearch: Error while formatting field: {0}", field.Name);
-                    }
+                    document[field.Name] = renderedField.ToSystemType(field.LayoutType, logEvent.FormatProvider, JsonSerializer);
                 }
-
-                if (logEvent.Exception != null && !document.ContainsKey("exception"))
+                catch (Exception ex)
                 {
-                    document.Add("exception", FormatValueSafe(logEvent.Exception, "exception"));
+                    _jsonSerializer = null; // Reset as it might now be in bad state
+                    InternalLogger.Error(ex, "ElasticSearch: Error while formatting field: {0}", field.Name);
                 }
-
-                if (IncludeAllProperties && logEvent.HasProperties)
-                {
-                    foreach (var p in logEvent.Properties)
-                    {
-                        var propertyKey = p.Key.ToString();
-                        if (_excludedProperties.Contains(propertyKey))
-                            continue;
-
-                        if (document.ContainsKey(propertyKey))
-                        {
-                            propertyKey += "_1";
-                            if (document.ContainsKey(propertyKey))
-                                continue;
-                        }
-
-                        document[propertyKey] = FormatValueSafe(p.Value, propertyKey);
-                    }
-                }
-
-                var index = RenderLogEvent(Index, logEvent).ToLowerInvariant();
-                var type = RenderLogEvent(DocumentType, logEvent);
-                var pipeLine = RenderLogEvent(Pipeline, logEvent);
-
-                var documentInfo = GenerateDocumentInfo(index, type, pipeLine);
-                payload.Add(documentInfo);
-                payload.Add(document);
             }
 
-            return PostData.MultiJson(payload);
+            if (logEvent.Exception != null && !document.ContainsKey("exception"))
+            {
+                document.Add("exception", FormatValueSafe(logEvent.Exception, "exception"));
+            }
+
+            if (IncludeAllProperties && logEvent.HasProperties)
+            {
+                foreach (var p in logEvent.Properties)
+                {
+                    var propertyKey = p.Key.ToString();
+                    if (_excludedProperties.Contains(propertyKey))
+                        continue;
+
+                    if (document.ContainsKey(propertyKey))
+                    {
+                        propertyKey += "_1";
+                        if (document.ContainsKey(propertyKey))
+                            continue;
+                    }
+
+                    document[propertyKey] = FormatValueSafe(p.Value, propertyKey);
+                }
+            }
+
+            return document;
         }
 
         private static object GenerateDocumentInfo(string index, string type, string pipeLine)
