@@ -506,6 +506,10 @@ namespace NLog.Targets.ElasticSearch
             return jsonSerializerSettings;
         }
 
+        /// <summary>
+        /// Add a Json converter
+        /// </summary>
+        /// <param name="jsonConverter"></param>
         public static void AddJsonConverter(JsonConverter jsonConverter)
         {
             if (!_jsonConverters.Contains(jsonConverter))

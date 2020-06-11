@@ -11,6 +11,10 @@ namespace NLog.Targets.ElasticSearch
         /// <inheritdoc />
         public override bool CanRead { get; } = false;
 
+        /// <summary>
+        /// Constructor for JsonToStringConverter for type
+        /// </summary>
+        /// <param name="type">Convertable type</param>
         public JsonToStringConverter(Type type)
         {
             _type = type;
