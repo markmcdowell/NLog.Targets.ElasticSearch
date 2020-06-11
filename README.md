@@ -25,7 +25,7 @@ See [wiki](https://github.com/ReactiveMarkets/NLog.Targets.ElasticSearch/wiki) f
 
 ## Custom Json Converters
 
-Custom JconConverters can be added to the Elastic Search Target by addinf the following to the startup of your project :
+Custom JconConverters can be added to the Elastic Search Target by adding the following to the startup of your project :
 
 ```cs
 ElasticSearchTarget.AddJsonConverter(new JsonToStringConverter(typeof(IPAddress)));
