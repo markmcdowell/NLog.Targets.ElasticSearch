@@ -1,4 +1,8 @@
 ﻿using System;
+using System.Net;
+using Mongo2Go;
+using MongoDB.Bson;
+using MongoDB.Driver;
 using NLog.Common;
 using NLog.Config;
 using NLog.Layouts;
@@ -149,6 +153,72 @@ namespace NLog.Targets.ElasticSearch.Tests
             logger.Info("Hello elasticsearch");
 
             LogManager.Flush();
+        }
+
+        [Fact(Skip = "Integration")]
+        public void CustomJsonConverterExceptionTest()
+        {
+            var runner = MongoDbRunner.Start();
+
+            try
+            {
+                var dbClient = new MongoClient(runner.ConnectionString);
+                var database = dbClient.GetDatabase("Test");
+
+                var collection = database.GetCollection<TestModel>("TestCollection");
+                collection
+                    .Indexes
+                    .CreateOneAsync(
+                        Builders<TestModel>.IndexKeys.Ascending(a => a.NoDuplicate),
+                        new CreateIndexOptions { Unique = true });
+
+                ElasticSearchTarget.AddJsonConverter(new JsonToStringConverter(typeof(IPAddress)));
+
+                using (var testOutputTextWriter = new TestOutputTextWriter(testOutputHelper))
+                {
+                    InternalLogger.LogWriter = testOutputTextWriter;
+                    InternalLogger.LogLevel = LogLevel.Error;
+
+                    LogManager.Configuration = new XmlLoggingConfiguration("NLog.Targets.ElasticSearch.Tests.dll.config");
+
+                    var logger = LogManager.GetLogger("Example");
+
+                    var testModel1 = new TestModel
+                    {
+                        _id = ObjectId.GenerateNewId(),
+                        NoDuplicate = "AAA"
+                    };
+
+                    collection.InsertOne(testModel1);
+
+                    var exception = Assert.Throws<MongoCommandException>(() =>
+                    {
+                        var testModel2 = new TestModel
+                        {
+                            _id = ObjectId.GenerateNewId(),
+                            NoDuplicate = "AAA"
+                        };
+
+                        collection.FindOneAndReplace(
+                            Builders<TestModel>.Filter.Eq(a => a._id, ObjectId.GenerateNewId()),
+                            testModel2,
+                            new FindOneAndReplaceOptions<TestModel, TestModel>
+                            {
+                                ReturnDocument = ReturnDocument.Before,
+                                IsUpsert = true
+                            });
+                    });
+
+                    logger.Error(exception, "Failed to insert data");
+
+                    LogManager.Flush();
+                    Assert.False(testOutputTextWriter.HadErrors(), "Failed to log to elastic");
+                }
+            }
+            finally
+            {
+                runner.Dispose();
+            }
         }
     }
 }

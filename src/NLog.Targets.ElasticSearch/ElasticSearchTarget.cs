@@ -34,6 +34,15 @@ namespace NLog.Targets.ElasticSearch
 
         private JsonLayout _documentInfoJsonLayout;
 
+        private static List<JsonConverter> _jsonConverters = new List<JsonConverter>
+        {
+            new StringEnumConverter(),
+            new JsonToStringConverter(typeof(System.Reflection.Assembly)),
+            new JsonToStringConverter(typeof(System.Reflection.Module)),
+            new JsonToStringConverter(typeof(System.Reflection.MemberInfo)),
+            //new JsonToStringConverter(typeof(IPAddress))
+        };
+
         /// <summary>
         /// Gets or sets a connection string name to retrieve the Uri from.
         ///
@@ -216,7 +225,7 @@ namespace NLog.Targets.ElasticSearch
             {
                 var uri = _uri?.Render(eventInfo) ?? string.Empty;
                 var nodes = uri.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).Select(url => new Uri(url));
-                connectionPool = new StaticConnectionPool(nodes);  
+                connectionPool = new StaticConnectionPool(nodes);
             }
 
             var config = ElasticsearchSerializer == null
@@ -481,10 +490,10 @@ namespace NLog.Targets.ElasticSearch
         private static JsonSerializerSettings CreateJsonSerializerSettings(bool specialPropertyResolver)
         {
             var jsonSerializerSettings = new JsonSerializerSettings { ReferenceLoopHandling = ReferenceLoopHandling.Ignore, NullValueHandling = NullValueHandling.Ignore, CheckAdditionalContent = true };
-            jsonSerializerSettings.Converters.Add(new StringEnumConverter());
-            jsonSerializerSettings.Converters.Add(new JsonToStringConverter(typeof(System.Reflection.Assembly)));
-            jsonSerializerSettings.Converters.Add(new JsonToStringConverter(typeof(System.Reflection.Module)));
-            jsonSerializerSettings.Converters.Add(new JsonToStringConverter(typeof(System.Reflection.MemberInfo)));
+
+            foreach (var jsonConverter in _jsonConverters)
+                jsonSerializerSettings.Converters.Add(jsonConverter);
+
             jsonSerializerSettings.Error = (sender, args) =>
             {
                 InternalLogger.Warn(args.ErrorContext.Error, $"Error serializing exception property '{args.ErrorContext.Member}', property ignored");
@@ -495,6 +504,12 @@ namespace NLog.Targets.ElasticSearch
                 jsonSerializerSettings.ContractResolver = new FlatObjectContractResolver();
             }
             return jsonSerializerSettings;
+        }
+
+        public static void AddJsonConverter(JsonConverter jsonConverter)
+        {
+            if (!_jsonConverters.Contains(jsonConverter))
+                _jsonConverters.Add(jsonConverter);
         }
     }
 }

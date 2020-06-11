@@ -3,7 +3,8 @@ using Newtonsoft.Json;
 
 namespace NLog.Targets.ElasticSearch
 {
-    internal sealed class JsonToStringConverter : JsonConverter
+    /// <summary>Base Json to string converter</summary>
+    public sealed class JsonToStringConverter : JsonConverter
     {
         private readonly Type _type;
 

@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Text;
 using Xunit.Abstractions;
 
@@ -7,6 +8,7 @@ namespace NLog.Targets.ElasticSearch.Tests
     public class TestOutputTextWriter : TextWriter
     {
         private StringBuilder stringBuilder;
+        private bool hadErrors = false;
         private readonly ITestOutputHelper testOutputHelper;
 
         public TestOutputTextWriter(ITestOutputHelper testOutputHelper)
@@ -35,6 +37,11 @@ namespace NLog.Targets.ElasticSearch.Tests
             if (sb.Length > 0)
             {
                 this.stringBuilder = new StringBuilder();
+                var s = sb.ToString();
+
+                if (s.Trim() != "")
+                    hadErrors = true;
+
                 this.testOutputHelper.WriteLine(sb.ToString());
             }
         }
@@ -44,5 +51,7 @@ namespace NLog.Targets.ElasticSearch.Tests
             this.Flush();
             base.Dispose(disposing);
         }
+
+        public bool HadErrors() => hadErrors;
     }
 }
