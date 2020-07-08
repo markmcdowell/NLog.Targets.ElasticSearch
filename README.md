@@ -14,7 +14,7 @@ See [wiki](https://github.com/ReactiveMarkets/NLog.Targets.ElasticSearch/wiki) f
   </extensions>
   <targets>
     <target name="elastic" xsi:type="BufferingWrapper" flushTimeout="5000">
-      <target xsi:type="ElasticSearch"/>
+      <target xsi:type="ElasticSearch" uri="http://localhost:9200/" />
     </target>
   </targets>
   <rules>
