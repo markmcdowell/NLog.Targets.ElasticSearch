@@ -24,7 +24,11 @@ namespace NLog.Targets.ElasticSearch
             }
             else
             {
+                // Convert into a JSON object, so it can be converted back to ExpandoObject
+                writer.WriteStartObject();
+                writer.WritePropertyName(_type.Name);
                 writer.WriteValue(value.ToString());
+                writer.WriteEndObject();
             }
         }
 

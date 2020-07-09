@@ -413,7 +413,7 @@ namespace NLog.Targets.ElasticSearch
                 catch (Exception ex)
                 {
                     _jsonSerializer = null; // Reset as it might now be in bad state
-                    InternalLogger.Error(ex, "ElasticSearch: Error while formatting field: {0}", field.Name);
+                    InternalLogger.Warn(ex, "ElasticSearch: Error while formatting field: {0}", field.Name);
                 }
             }
 
@@ -473,7 +473,7 @@ namespace NLog.Targets.ElasticSearch
             {
                 _jsonSerializer = null; // Reset as it might now be in bad state
                 _flatJsonSerializer = null;
-                InternalLogger.Error(ex, "ElasticSearch: Error while formatting property: {0}", propertyName);
+                InternalLogger.Debug(ex, "ElasticSearch: Error while formatting property: {0}", propertyName);
                 return null;
             }
         }
@@ -482,12 +482,14 @@ namespace NLog.Targets.ElasticSearch
         {
             var jsonSerializerSettings = new JsonSerializerSettings { ReferenceLoopHandling = ReferenceLoopHandling.Ignore, NullValueHandling = NullValueHandling.Ignore, CheckAdditionalContent = true };
             jsonSerializerSettings.Converters.Add(new StringEnumConverter());
-            jsonSerializerSettings.Converters.Add(new JsonToStringConverter(typeof(System.Reflection.Assembly)));
-            jsonSerializerSettings.Converters.Add(new JsonToStringConverter(typeof(System.Reflection.Module)));
-            jsonSerializerSettings.Converters.Add(new JsonToStringConverter(typeof(System.Reflection.MemberInfo)));
+            jsonSerializerSettings.Converters.Add(new JsonToStringConverter(typeof(System.Reflection.Assembly)));   // Skip serializing all types in application
+            jsonSerializerSettings.Converters.Add(new JsonToStringConverter(typeof(System.Reflection.Module)));     // Skip serializing all types in application
+            jsonSerializerSettings.Converters.Add(new JsonToStringConverter(typeof(System.Reflection.MemberInfo))); // Skip serializing all types in application
+            jsonSerializerSettings.Converters.Add(new JsonToStringConverter(typeof(System.IO.Stream)));             // Skip serializing Stream properties, since they throw
+            jsonSerializerSettings.Converters.Add(new JsonToStringConverter(typeof(System.Net.IPAddress)));         // Skip serializing IPAdress properties, since they throw when IPv6 address
             jsonSerializerSettings.Error = (sender, args) =>
             {
-                InternalLogger.Warn(args.ErrorContext.Error, $"Error serializing exception property '{args.ErrorContext.Member}', property ignored");
+                InternalLogger.Debug(args.ErrorContext.Error, $"Error serializing exception property '{args.ErrorContext.Member}', property ignored");
                 args.ErrorContext.Handled = true;
             };
             if (specialPropertyResolver)
