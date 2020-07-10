@@ -26,8 +26,8 @@ namespace NLog.Targets.ElasticSearch
         private HashSet<string> _excludedProperties = new HashSet<string>(new[] { "CallerMemberName", "CallerFilePath", "CallerLineNumber", "MachineName", "ThreadId" });
         private JsonSerializer _jsonSerializer;
         private JsonSerializer _flatJsonSerializer;
-        private readonly Lazy<JsonSerializerSettings> _jsonSerializerSettings = new Lazy<JsonSerializerSettings>(() => CreateJsonSerializerSettings(false), LazyThreadSafetyMode.PublicationOnly);
-        private readonly Lazy<JsonSerializerSettings> _flatSerializerSettings = new Lazy<JsonSerializerSettings>(() => CreateJsonSerializerSettings(true), LazyThreadSafetyMode.PublicationOnly);
+        private readonly Lazy<JsonSerializerSettings> _jsonSerializerSettings;
+        private readonly Lazy<JsonSerializerSettings> _flatSerializerSettings;
 
         private JsonSerializer JsonSerializer => _jsonSerializer ?? (_jsonSerializer = JsonSerializer.CreateDefault(_jsonSerializerSettings.Value));
         private JsonSerializer JsonSerializerFlat => _flatJsonSerializer ?? (_flatJsonSerializer = JsonSerializer.CreateDefault(_flatSerializerSettings.Value));
@@ -162,6 +162,12 @@ namespace NLog.Targets.ElasticSearch
         public IList<Field> Fields { get; set; } = new List<Field>();
 
         /// <summary>
+        /// Gets or sets a list of object types and their override of JsonConverter
+        /// </summary>
+        [ArrayParameter(typeof(ObjectTypeConvert), "typeconverter")]
+        public IList<ObjectTypeConvert> ObjectTypeConverters { get; set; }
+
+        /// <summary>
         /// Gets or sets an alternative serializer for the elasticsearch client to use.
         /// </summary>
         public IElasticsearchSerializer ElasticsearchSerializer { get; set; }
@@ -191,6 +197,18 @@ namespace NLog.Targets.ElasticSearch
         {
             Name = "ElasticSearch";
             OptimizeBufferReuse = true;
+
+            ObjectTypeConverters = new List<ObjectTypeConvert>()
+            {
+                new ObjectTypeConvert(typeof(System.Reflection.Assembly)),     // Skip serializing all types in application
+                new ObjectTypeConvert(typeof(System.Reflection.Module)),       // Skip serializing all types in application
+                new ObjectTypeConvert(typeof(System.Reflection.MemberInfo)),   // Skip serializing all types in application
+                new ObjectTypeConvert(typeof(System.IO.Stream)),               // Skip serializing Stream properties, since they throw
+                new ObjectTypeConvert(typeof(System.Net.IPAddress)),           // Skip serializing IPAdress properties, since they throw when IPv6 address
+            };
+
+            _jsonSerializerSettings = new Lazy<JsonSerializerSettings>(() => CreateJsonSerializerSettings(false, ObjectTypeConverters), LazyThreadSafetyMode.PublicationOnly);
+            _flatSerializerSettings = new Lazy<JsonSerializerSettings>(() => CreateJsonSerializerSettings(true, ObjectTypeConverters), LazyThreadSafetyMode.PublicationOnly);
         }
 
         /// <inheritdoc />
@@ -478,18 +496,21 @@ namespace NLog.Targets.ElasticSearch
             }
         }
 
-        private static JsonSerializerSettings CreateJsonSerializerSettings(bool specialPropertyResolver)
+        private static JsonSerializerSettings CreateJsonSerializerSettings(bool specialPropertyResolver, IList<ObjectTypeConvert> objectTypeConverters)
         {
             var jsonSerializerSettings = new JsonSerializerSettings { ReferenceLoopHandling = ReferenceLoopHandling.Ignore, NullValueHandling = NullValueHandling.Ignore, CheckAdditionalContent = true };
             jsonSerializerSettings.Converters.Add(new StringEnumConverter());
-            jsonSerializerSettings.Converters.Add(new JsonToStringConverter(typeof(System.Reflection.Assembly)));   // Skip serializing all types in application
-            jsonSerializerSettings.Converters.Add(new JsonToStringConverter(typeof(System.Reflection.Module)));     // Skip serializing all types in application
-            jsonSerializerSettings.Converters.Add(new JsonToStringConverter(typeof(System.Reflection.MemberInfo))); // Skip serializing all types in application
-            jsonSerializerSettings.Converters.Add(new JsonToStringConverter(typeof(System.IO.Stream)));             // Skip serializing Stream properties, since they throw
-            jsonSerializerSettings.Converters.Add(new JsonToStringConverter(typeof(System.Net.IPAddress)));         // Skip serializing IPAdress properties, since they throw when IPv6 address
+            foreach (var typeConverter in objectTypeConverters ?? Array.Empty<ObjectTypeConvert>())
+            {
+                var jsonConverter = typeConverter.JsonConverter;
+                if (jsonConverter != null)
+                    jsonSerializerSettings.Converters.Add(jsonConverter);
+                else
+                    InternalLogger.Debug("ElasticSearch: TypeConverter for {0} has no JsonConverter", typeConverter.ObjectType);
+            }
             jsonSerializerSettings.Error = (sender, args) =>
             {
-                InternalLogger.Debug(args.ErrorContext.Error, $"Error serializing exception property '{args.ErrorContext.Member}', property ignored");
+                InternalLogger.Debug(args.ErrorContext.Error, $"ElasticSearch: Error serializing exception property '{args.ErrorContext.Member}', property ignored");
                 args.ErrorContext.Handled = true;
             };
             if (specialPropertyResolver)

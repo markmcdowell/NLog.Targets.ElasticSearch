@@ -16,9 +16,16 @@ namespace NLog.Targets.ElasticSearch.Tests
             this.testOutputHelper = testOutputHelper;
         }
 
-        private class ExceptionWithPropertiesThatThrow : Exception
+        public class BadLogException : Exception
         {
-            public object ThisPropertyThrowsOnGet => throw new ObjectDisposedException("DisposedObject");
+            public object[] BadArray { get; }
+            public System.Reflection.Assembly BadProperty => typeof(BadLogException).Assembly;
+            public object ExceptionalBadProperty => throw new System.NotSupportedException();
+
+            public BadLogException()
+            {
+                BadArray = new object[] { this };
+            }
         }
 
         [Theory(Skip = "Integration")]
@@ -53,7 +60,7 @@ namespace NLog.Targets.ElasticSearch.Tests
 
                 var logger = LogManager.GetLogger("Example");
 
-                logger.Error(new ExceptionWithPropertiesThatThrow(), "Boom");
+                logger.Error(new BadLogException(), "Boom");
 
                 LogManager.Flush();
             }
