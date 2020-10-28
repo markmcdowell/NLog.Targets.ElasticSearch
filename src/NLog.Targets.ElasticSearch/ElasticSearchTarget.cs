@@ -151,6 +151,14 @@ namespace NLog.Targets.ElasticSearch
         public Layout DocumentType { get; set; } = "_doc";
 
         /// <summary>
+        /// Gets or sets to only create index for the document if it does not already exist (put if absent). Required when request targets a data stream.
+        /// </summary>
+        /// <remarks>
+        /// Elastic ver. 7.9 is required for using data streams.
+        /// </remarks>
+        public bool OpCodeCreate { get; set; }
+
+        /// <summary>
         /// Gets or sets the pipeline transformation
         /// </summary>
         public Layout Pipeline { get; set; }
@@ -301,7 +309,7 @@ namespace NLog.Targets.ElasticSearch
                 _documentInfoJsonLayout = new JsonLayout()
                 {
                     Attributes = {
-                        new JsonAttribute("index", new JsonLayout()
+                        new JsonAttribute(OpCodeCreate ? "create" : "index", new JsonLayout()
                         {
                             Attributes = {
                                 new JsonAttribute("_index", Index) { EscapeForwardSlash = false },
@@ -398,7 +406,7 @@ namespace NLog.Targets.ElasticSearch
                 var type = RenderLogEvent(DocumentType, logEvent);
                 var pipeLine = RenderLogEvent(Pipeline, logEvent);
 
-                var documentInfo = GenerateDocumentInfo(index, type, pipeLine);
+                var documentInfo = GenerateDocumentInfo(OpCodeCreate, index, type, pipeLine);
                 var document = GenerateDocumentProperties(logEvent);
 
                 payload.Add(documentInfo);
@@ -462,21 +470,41 @@ namespace NLog.Targets.ElasticSearch
             return document;
         }
 
-        private static object GenerateDocumentInfo(string index, string type, string pipeLine)
+        private static object GenerateDocumentInfo(bool opCodeCreate, string index, string mappingType, string pipeLine)
         {
             if (string.IsNullOrEmpty(pipeLine))
             {
-                if (string.IsNullOrEmpty(type))
-                    return new { index = new { _index = index } };
+                if (string.IsNullOrEmpty(mappingType))
+                {
+                    if (opCodeCreate)
+                        return new { create = new { _index = index } };
+                    else
+                        return new { index = new { _index = index } };
+                }
                 else
-                    return new { index = new { _index = index, _type = type } };
+                {
+                    if (opCodeCreate)
+                        return new { create = new { _index = index, _type = mappingType } };
+                    else
+                        return new { index = new { _index = index, _type = mappingType } };
+                }
             }
             else
             {
-                if (string.IsNullOrEmpty(type))
-                    return new { index = new { _index = index, pipeline = pipeLine } };
+                if (string.IsNullOrEmpty(mappingType))
+                {
+                    if (opCodeCreate)
+                        return new { create = new { _index = index, pipeline = pipeLine } };
+                    else
+                        return new { index = new { _index = index, pipeline = pipeLine } };
+                }
                 else
-                    return new { index = new { _index = index, _type = type, pipeline = pipeLine } };
+                {
+                    if (opCodeCreate)
+                        return new { create = new { _index = index, _type = mappingType, pipeline = pipeLine } };
+                    else
+                        return new { index = new { _index = index, _type = mappingType, pipeline = pipeLine } };
+                }
             }
         }
 
