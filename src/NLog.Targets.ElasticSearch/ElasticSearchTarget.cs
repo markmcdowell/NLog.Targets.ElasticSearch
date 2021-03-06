@@ -23,6 +23,8 @@ namespace NLog.Targets.ElasticSearch
         private Layout _cloudId;
         private Layout _username;
         private Layout _password;
+        private Layout _apiKeyId;
+        private Layout _apiKey;
         private HashSet<string> _excludedProperties = new HashSet<string>(new[] { "CallerMemberName", "CallerFilePath", "CallerLineNumber", "MachineName", "ThreadId" });
         private JsonSerializer _jsonSerializer;
         private JsonSerializer _flatJsonSerializer;
@@ -60,7 +62,7 @@ namespace NLog.Targets.ElasticSearch
         }
 
         /// <summary>
-        /// Gets or sets the elasticsearch cloud id.
+        /// <inheritdoc cref="IElasticSearchTarget.CloudId"/>
         /// </summary>
         public string CloudId
         {
@@ -199,6 +201,21 @@ namespace NLog.Targets.ElasticSearch
         public bool EnableJsonLayout { get; set; }
 
         /// <summary>
+        /// <inheritdoc cref="IElasticSearchTarget.ApiKeyId"/>
+        /// </summary>
+        public string ApiKeyId { get => (_apiKeyId as SimpleLayout)?.Text; set => _apiKeyId = value ?? string.Empty; }
+
+        /// <summary>
+        /// <inheritdoc cref="IElasticSearchTarget.ApiKey"/>
+        /// </summary>
+        public string ApiKey { get => (_apiKey as SimpleLayout)?.Text; set => _apiKey = value ?? string.Empty; }
+
+        /// <summary>
+        /// <inheritdoc cref="IElasticSearchTarget.IncludeDefaultProperties"/>
+        /// </summary>
+        public bool IncludeDefaultProperties { get; set; } = true;
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="ElasticSearchTarget"/> class.
         /// </summary>
         public ElasticSearchTarget()
@@ -228,15 +245,20 @@ namespace NLog.Targets.ElasticSearch
 
             var eventInfo = LogEventInfo.CreateNullEvent();
             var cloudId = _cloudId?.Render(eventInfo) ?? string.Empty;
-            if (!String.IsNullOrWhiteSpace(cloudId))
+            if (!string.IsNullOrWhiteSpace(cloudId))
             {
-                var username = _username?.Render(eventInfo) ?? string.Empty;
-                var password = _password?.Render(eventInfo) ?? string.Empty;
-                connectionPool = new CloudConnectionPool(
-                    cloudId,
-                    new BasicAuthenticationCredentials(
-                        username,
-                        password));
+                var apiKeyId = _apiKeyId?.Render(eventInfo) ?? string.Empty;
+                var apiKey = _apiKey?.Render(eventInfo) ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(apiKey) && !string.IsNullOrWhiteSpace(apiKeyId))
+                {
+                    connectionPool = new CloudConnectionPool(cloudId, new ApiKeyAuthenticationCredentials(apiKeyId, apiKey));
+                }
+                else
+                {
+                    var username = _username?.Render(eventInfo) ?? string.Empty;
+                    var password = _password?.Render(eventInfo) ?? string.Empty;
+                    connectionPool = new CloudConnectionPool(cloudId, new BasicAuthenticationCredentials(username, password));
+                }
             }
             else
             {
@@ -418,12 +440,14 @@ namespace NLog.Targets.ElasticSearch
 
         private Dictionary<string, object> GenerateDocumentProperties(LogEventInfo logEvent)
         {
-            var document = new Dictionary<string, object>
-                {
-                    {"@timestamp", logEvent.TimeStamp},
-                    {"level", logEvent.Level.Name},
-                    {"message", RenderLogEvent(Layout, logEvent)}
-                };
+            var document = new Dictionary<string, object>();
+
+            if (IncludeDefaultProperties)
+            {
+                document.Add("@timestamp", logEvent.TimeStamp);
+                document.Add("level", logEvent.Level.Name);
+                document.Add("message", RenderLogEvent(Layout, logEvent));
+            }
 
             foreach (var field in Fields)
             {
@@ -443,9 +467,12 @@ namespace NLog.Targets.ElasticSearch
                 }
             }
 
-            if (logEvent.Exception != null && !document.ContainsKey("exception"))
+            if (IncludeDefaultProperties)
             {
-                document.Add("exception", FormatValueSafe(logEvent.Exception, "exception"));
+                if (logEvent.Exception != null && !document.ContainsKey("exception"))
+                {
+                    document.Add("exception", FormatValueSafe(logEvent.Exception, "exception"));
+                }
             }
 
             if (IncludeAllProperties && logEvent.HasProperties)
