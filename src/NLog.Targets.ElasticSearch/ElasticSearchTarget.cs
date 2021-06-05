@@ -345,7 +345,7 @@ namespace NLog.Targets.ElasticSearch
                 var exception = result.Success ? null : result.OriginalException ?? new Exception("No error message. Enable Trace logging for more information.");
                 if (exception != null)
                 {
-                    InternalLogger.Error(exception.FlattenToActualException(), $"ElasticSearch: Failed to send log messages. Status={result.HttpStatusCode} Uri={result.Uri}");
+                    InternalLogger.Error(exception.FlattenToActualException(), $"ElasticSearch: Failed to send log messages. Status={result.HttpStatusCode} Uri={result.Uri} DebugInformation={result.DebugInformation}");
                 }
                 else if (InternalLogger.IsTraceEnabled)
                 {
