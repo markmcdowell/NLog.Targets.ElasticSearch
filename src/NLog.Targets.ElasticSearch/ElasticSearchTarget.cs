@@ -312,9 +312,9 @@ namespace NLog.Targets.ElasticSearch
                         new JsonAttribute(OpCodeCreate ? "create" : "index", new JsonLayout()
                         {
                             Attributes = {
-                                new JsonAttribute("_index", Index) { EscapeForwardSlash = false },
-                                new JsonAttribute("_type", DocumentType) { EscapeForwardSlash = false },
-                                new JsonAttribute("pipeline", Pipeline) { EscapeForwardSlash = false },
+                                new JsonAttribute("_index", Index),
+                                new JsonAttribute("_type", DocumentType),
+                                new JsonAttribute("pipeline", Pipeline)
                             }
                         }, encode: false)
                     }
@@ -404,7 +404,9 @@ namespace NLog.Targets.ElasticSearch
 
                 var index = RenderLogEvent(Index, logEvent).ToLowerInvariant();
                 var type = RenderLogEvent(DocumentType, logEvent);
-                var pipeLine = RenderLogEvent(Pipeline, logEvent);
+                var pipeLine = "";
+                if (Pipeline != null)
+                    pipeLine = RenderLogEvent(Pipeline, logEvent);
 
                 var documentInfo = GenerateDocumentInfo(OpCodeCreate, index, type, pipeLine);
                 var document = GenerateDocumentProperties(logEvent);

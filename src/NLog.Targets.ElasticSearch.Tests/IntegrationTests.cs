@@ -94,7 +94,6 @@ namespace NLog.Targets.ElasticSearch.Tests
             elasticTarget.EnableJsonLayout = true;
             elasticTarget.Layout = new JsonLayout()
             {
-                MaxRecursionLimit = 10,
                 IncludeAllProperties = true,
                 Attributes =
                     {
