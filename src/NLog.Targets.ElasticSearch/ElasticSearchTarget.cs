@@ -211,9 +211,9 @@ namespace NLog.Targets.ElasticSearch
         public string ApiKey { get => (_apiKey as SimpleLayout)?.Text; set => _apiKey = value ?? string.Empty; }
 
         /// <summary>
-        /// <inheritdoc cref="IElasticSearchTarget.IncludeDefaultProperties"/>
+        /// <inheritdoc cref="IElasticSearchTarget.IncludeDefaultFields"/>
         /// </summary>
-        public bool IncludeDefaultProperties { get; set; } = true;
+        public bool IncludeDefaultFields { get; set; } = true;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ElasticSearchTarget"/> class.
@@ -442,7 +442,7 @@ namespace NLog.Targets.ElasticSearch
         {
             var document = new Dictionary<string, object>();
 
-            if (IncludeDefaultProperties)
+            if (IncludeDefaultFields)
             {
                 document.Add("@timestamp", logEvent.TimeStamp);
                 document.Add("level", logEvent.Level.Name);
@@ -467,7 +467,7 @@ namespace NLog.Targets.ElasticSearch
                 }
             }
 
-            if (IncludeDefaultProperties)
+            if (IncludeDefaultFields)
             {
                 if (logEvent.Exception != null && !document.ContainsKey("exception"))
                 {

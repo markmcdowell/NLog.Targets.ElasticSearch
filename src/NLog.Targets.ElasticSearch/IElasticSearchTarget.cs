@@ -131,6 +131,6 @@ namespace NLog.Targets.ElasticSearch
         /// <para>Set to false if you want to explicitly specify the document fields.</para>
         /// <para>Default value is true.</para>
         /// </summary>
-        bool IncludeDefaultProperties { get; set; }
+        bool IncludeDefaultFields { get; set; }
     }
 }
