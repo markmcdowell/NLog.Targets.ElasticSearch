@@ -24,6 +24,8 @@ namespace NLog.Targets.ElasticSearch
 
         /// <summary>
         /// Gets or sets the elasticsearch cloud id.
+        /// <para>If both apiKey and apiKeyId is provided, <see cref="ApiKeyAuthenticationCredentials"/> will be used.</para>
+        /// <para>Otherwise, <see cref="BasicAuthenticationCredentials"/> will be used.</para>
         /// </summary>
         string CloudId { get; set; }
 
@@ -111,5 +113,24 @@ namespace NLog.Targets.ElasticSearch
         /// Gets or sets an alertnative serializer for the elasticsearch client to use.
         /// </summary>
         IElasticsearchSerializer ElasticsearchSerializer { get; set; }
+
+        /// <summary>
+        /// Gets or sets the elasticsearch ApiKeyId.
+        /// <para>Use with <see cref="ApiKey"/> and <see cref="CloudId"/>.</para>
+        /// </summary>
+        string ApiKeyId { get; set; }
+
+        /// <summary>
+        /// Gets or sets the elasticsearch ApiKey.
+        /// <para>Use with <see cref="ApiKeyId"/> and <see cref="CloudId"/>.</para>
+        /// </summary>
+        string ApiKey { get; set; }
+
+        /// <summary>
+        /// <para>Automatically add @timestamp, level, message and exception.* properties.</para>
+        /// <para>Set to false if you want to explicitly specify the document fields.</para>
+        /// <para>Default value is true.</para>
+        /// </summary>
+        bool IncludeDefaultFields { get; set; }
     }
 }
