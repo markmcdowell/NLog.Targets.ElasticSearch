@@ -150,7 +150,7 @@ namespace NLog.Targets.ElasticSearch
         /// <summary>
         /// Gets or sets the document type for the elasticsearch index.
         /// </summary>
-        public Layout DocumentType { get; set; } = "_doc";
+        public Layout DocumentType { get; set; }
 
         /// <summary>
         /// Gets or sets to only create index for the document if it does not already exist (put if absent). Required when request targets a data stream.
@@ -245,6 +245,7 @@ namespace NLog.Targets.ElasticSearch
 
             var eventInfo = LogEventInfo.CreateNullEvent();
             var cloudId = _cloudId?.Render(eventInfo) ?? string.Empty;
+
             if (!string.IsNullOrWhiteSpace(cloudId))
             {
                 var apiKeyId = _apiKeyId?.Render(eventInfo) ?? string.Empty;
@@ -264,7 +265,7 @@ namespace NLog.Targets.ElasticSearch
             {
                 var uri = _uri?.Render(eventInfo) ?? string.Empty;
                 var nodes = uri.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).Select(url => new Uri(url));
-                connectionPool = new StaticConnectionPool(nodes);  
+                connectionPool = new StaticConnectionPool(nodes);
             }
 
             var config = ElasticsearchSerializer == null
@@ -275,7 +276,20 @@ namespace NLog.Targets.ElasticSearch
             {
                 var username = _username?.Render(eventInfo) ?? string.Empty;
                 var password = _password?.Render(eventInfo) ?? string.Empty;
-                config = config.BasicAuthentication(username, password);
+
+                if (!string.IsNullOrEmpty(username) && !string.IsNullOrEmpty(password))
+                {
+                    config = config.BasicAuthentication(username, password);
+                }
+                else
+                {
+                    var apiKeyId = _apiKeyId?.Render(eventInfo) ?? string.Empty;
+                    var apiKey = _apiKey?.Render(eventInfo) ?? string.Empty;
+                    if (!string.IsNullOrWhiteSpace(apiKey) && !string.IsNullOrWhiteSpace(apiKeyId))
+                    {
+                        config = config.ApiKeyAuthentication(apiKeyId, apiKey);
+                    }
+                }
             }
 
             if (DisableAutomaticProxyDetection)
