@@ -150,7 +150,7 @@ namespace NLog.Targets.ElasticSearch
         /// <summary>
         /// Gets or sets the document type for the elasticsearch index.
         /// </summary>
-        public Layout DocumentType { get; set; }
+        public Layout DocumentType { get; set; } = "_doc";
 
         /// <summary>
         /// Gets or sets to only create index for the document if it does not already exist (put if absent). Required when request targets a data stream.
