@@ -274,15 +274,18 @@ namespace NLog.Targets.ElasticSearch
                 ? new ConnectionConfiguration(connectionPool)
                 : new ConnectionConfiguration(connectionPool, ElasticsearchSerializer);
 
-            if (!string.IsNullOrWhiteSpace(username))
+            if (string.IsNullOrWhiteSpace(cloudId))
             {
-                config = config.BasicAuthentication(username, password);
-            }
-            else
-            {
-                if (!string.IsNullOrWhiteSpace(apiKey) && !string.IsNullOrWhiteSpace(apiKeyId))
+                if (!string.IsNullOrWhiteSpace(username))
                 {
-                    config = config.ApiKeyAuthentication(apiKeyId, apiKey);
+                    config = config.BasicAuthentication(username, password);
+                }
+                else
+                {
+                    if (!string.IsNullOrWhiteSpace(apiKey) && !string.IsNullOrWhiteSpace(apiKeyId))
+                    {
+                        config = config.ApiKeyAuthentication(apiKeyId, apiKey);
+                    }
                 }
             }
 
