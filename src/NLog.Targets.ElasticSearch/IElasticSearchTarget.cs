@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Net;
 using Elasticsearch.Net;
 using NLog.Layouts;
@@ -32,6 +33,7 @@ namespace NLog.Targets.ElasticSearch
         /// <summary>
         /// Set it to true if ElasticSearch uses BasicAuth
         /// </summary>
+        [Obsolete]
         bool RequireAuth { get; set; }
 
         /// <summary>

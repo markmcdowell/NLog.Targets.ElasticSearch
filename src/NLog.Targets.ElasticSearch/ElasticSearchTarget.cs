@@ -81,6 +81,7 @@ namespace NLog.Targets.ElasticSearch
         /// <summary>
         /// Set it to true if ElasticSearch uses BasicAuth
         /// </summary>
+        [Obsolete]
         public bool RequireAuth { get; set; }
 
         /// <summary>
@@ -246,18 +247,19 @@ namespace NLog.Targets.ElasticSearch
             var eventInfo = LogEventInfo.CreateNullEvent();
             var cloudId = _cloudId?.Render(eventInfo) ?? string.Empty;
 
+            var username = _username?.Render(eventInfo) ?? string.Empty;
+            var password = _password?.Render(eventInfo) ?? string.Empty;
+            var apiKeyId = _apiKeyId?.Render(eventInfo) ?? string.Empty;
+            var apiKey = _apiKey?.Render(eventInfo) ?? string.Empty;
+
             if (!string.IsNullOrWhiteSpace(cloudId))
             {
-                var apiKeyId = _apiKeyId?.Render(eventInfo) ?? string.Empty;
-                var apiKey = _apiKey?.Render(eventInfo) ?? string.Empty;
                 if (!string.IsNullOrWhiteSpace(apiKey) && !string.IsNullOrWhiteSpace(apiKeyId))
                 {
                     connectionPool = new CloudConnectionPool(cloudId, new ApiKeyAuthenticationCredentials(apiKeyId, apiKey));
                 }
                 else
                 {
-                    var username = _username?.Render(eventInfo) ?? string.Empty;
-                    var password = _password?.Render(eventInfo) ?? string.Empty;
                     connectionPool = new CloudConnectionPool(cloudId, new BasicAuthenticationCredentials(username, password));
                 }
             }
@@ -272,23 +274,15 @@ namespace NLog.Targets.ElasticSearch
                 ? new ConnectionConfiguration(connectionPool)
                 : new ConnectionConfiguration(connectionPool, ElasticsearchSerializer);
 
-            if (RequireAuth)
+            if (!string.IsNullOrWhiteSpace(username))
             {
-                var username = _username?.Render(eventInfo) ?? string.Empty;
-                var password = _password?.Render(eventInfo) ?? string.Empty;
-
-                if (!string.IsNullOrEmpty(username) && !string.IsNullOrEmpty(password))
+                config = config.BasicAuthentication(username, password);
+            }
+            else
+            {
+                if (!string.IsNullOrWhiteSpace(apiKey) && !string.IsNullOrWhiteSpace(apiKeyId))
                 {
-                    config = config.BasicAuthentication(username, password);
-                }
-                else
-                {
-                    var apiKeyId = _apiKeyId?.Render(eventInfo) ?? string.Empty;
-                    var apiKey = _apiKey?.Render(eventInfo) ?? string.Empty;
-                    if (!string.IsNullOrWhiteSpace(apiKey) && !string.IsNullOrWhiteSpace(apiKeyId))
-                    {
-                        config = config.ApiKeyAuthentication(apiKeyId, apiKey);
-                    }
+                    config = config.ApiKeyAuthentication(apiKeyId, apiKey);
                 }
             }
 
