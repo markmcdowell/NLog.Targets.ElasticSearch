@@ -4,6 +4,7 @@ using System.Net;
 using System.Linq;
 using System.Threading;
 using Elasticsearch.Net;
+using Nest;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using NLog.Common;
@@ -373,12 +374,23 @@ namespace NLog.Targets.ElasticSearch
             {
                 var payload = EnableJsonLayout ? FromPayloadWithJsonLayout(logEvents) : FormPayload(logEvents);
 
-                var result = _client.Bulk<BytesResponse>(payload);
+                var result = _client.Bulk<BulkResponse>(payload);
 
-                var exception = result.Success ? null : result.OriginalException ?? new Exception("No error message. Enable Trace logging for more information.");
+                var exception = result.ApiCall?.Success ?? false ? null : result.OriginalException ?? new Exception("No error message. Enable Trace logging for more information.");
+
+                if (result.ServerError != null)
+                {
+                    InternalLogger.Error($"ElasticSearch: Server error: {result.ServerError}");
+                }
+
+                foreach (var itemWithError in result.ItemsWithErrors)
+                {
+                    InternalLogger.Error($"ElasticSearch: Bulk item failed: index:{itemWithError.Index} result:{itemWithError.Result} type:{itemWithError.Type} error:{itemWithError.Error}");
+                }
+
                 if (exception != null)
                 {
-                    InternalLogger.Error(exception.FlattenToActualException(), $"ElasticSearch: Failed to send log messages. Status={result.HttpStatusCode} Uri={result.Uri} DebugInformation={result.DebugInformation}");
+                    InternalLogger.Error(exception.FlattenToActualException(), $"ElasticSearch: Failed to send log messages. Status={result.ApiCall?.HttpStatusCode} Uri={result.ApiCall?.Uri} DebugInformation={result.DebugInformation}");
                 }
                 else if (InternalLogger.IsTraceEnabled)
                 {
@@ -386,10 +398,10 @@ namespace NLog.Targets.ElasticSearch
                 }
                 else if (InternalLogger.IsDebugEnabled)
                 {
-                    var warnings = result.DeprecationWarnings;
-                    if (warnings.Any())
+                    var warnings = result.ApiCall?.DeprecationWarnings;
+                    if (warnings != null && warnings.Any())
                     {
-                        string warningInfo = string.Join(", ", result.DeprecationWarnings);
+                        string warningInfo = string.Join(", ", result.ApiCall.DeprecationWarnings);
                         InternalLogger.Debug("ElasticSearch: Send Log Warnings={0}", warningInfo);
                     }
                 }
