@@ -134,6 +134,11 @@ namespace NLog.Targets.ElasticSearch
         public bool EnableHttpCompression { get; set; }
 
         /// <summary>
+        /// Set it to true to enable EnableApiVersioningHeader (Enables use of v8+ server)
+        /// </summary>
+        public bool EnableApiVersioningHeader { get; set; }
+
+        /// <summary>
         /// Gets or sets the name of the elasticsearch index to write to.
         /// </summary>
         [RequiredParameter]
@@ -327,6 +332,9 @@ namespace NLog.Targets.ElasticSearch
 
             if (EnableHttpCompression)
                 config = config.EnableHttpCompression();
+
+            if (EnableApiVersioningHeader)
+                config = config.EnableApiVersioningHeader();
 
             _client = new ElasticLowLevelClient(config);
 

@@ -134,5 +134,10 @@ namespace NLog.Targets.ElasticSearch
         /// <para>Default value is true.</para>
         /// </summary>
         bool IncludeDefaultFields { get; set; }
+
+        /// <summary>
+        /// Set it to true to enable EnableApiVersioningHeader (Enables use of v8+ server)
+        /// </summary>
+        bool EnableApiVersioningHeader { get; set; }
     }
 }
