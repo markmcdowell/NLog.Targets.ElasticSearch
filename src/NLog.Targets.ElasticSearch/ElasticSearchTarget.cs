@@ -355,8 +355,8 @@ namespace NLog.Targets.ElasticSearch
                         {
                             Attributes = {
                                 new JsonAttribute("_index", Index) { EscapeForwardSlash = false },
-                                new JsonAttribute("_type", DocumentType) { EscapeForwardSlash = false },
-                                new JsonAttribute("pipeline", Pipeline) { EscapeForwardSlash = false },
+                                new JsonAttribute("_type", DocumentType ?? new SimpleLayout("")) { EscapeForwardSlash = false },
+                                new JsonAttribute("pipeline", Pipeline ?? new SimpleLayout("")) { EscapeForwardSlash = false },
                             }
                         }, encode: false)
                     }
@@ -456,10 +456,10 @@ namespace NLog.Targets.ElasticSearch
                 var logEvent = ev.LogEvent;
 
                 var index = RenderLogEvent(Index, logEvent).ToLowerInvariant();
-                var type = RenderLogEvent(DocumentType, logEvent);
+                var documentType = RenderLogEvent(DocumentType, logEvent);
                 var pipeLine = RenderLogEvent(Pipeline, logEvent);
 
-                var documentInfo = GenerateDocumentInfo(OpCodeCreate, index, type, pipeLine);
+                var documentInfo = GenerateDocumentInfo(OpCodeCreate, index, documentType, pipeLine);
                 var document = GenerateDocumentProperties(logEvent);
 
                 payload.Add(documentInfo);
@@ -528,11 +528,11 @@ namespace NLog.Targets.ElasticSearch
             return document;
         }
 
-        private static object GenerateDocumentInfo(bool opCodeCreate, string index, string mappingType, string pipeLine)
+        private static object GenerateDocumentInfo(bool opCodeCreate, string index, string documentType, string pipeLine)
         {
             if (string.IsNullOrEmpty(pipeLine))
             {
-                if (string.IsNullOrEmpty(mappingType))
+                if (string.IsNullOrEmpty(documentType))
                 {
                     if (opCodeCreate)
                         return new { create = new { _index = index } };
@@ -542,14 +542,14 @@ namespace NLog.Targets.ElasticSearch
                 else
                 {
                     if (opCodeCreate)
-                        return new { create = new { _index = index, _type = mappingType } };
+                        return new { create = new { _index = index, _type = documentType } };
                     else
-                        return new { index = new { _index = index, _type = mappingType } };
+                        return new { index = new { _index = index, _type = documentType } };
                 }
             }
             else
             {
-                if (string.IsNullOrEmpty(mappingType))
+                if (string.IsNullOrEmpty(documentType))
                 {
                     if (opCodeCreate)
                         return new { create = new { _index = index, pipeline = pipeLine } };
@@ -559,9 +559,9 @@ namespace NLog.Targets.ElasticSearch
                 else
                 {
                     if (opCodeCreate)
-                        return new { create = new { _index = index, _type = mappingType, pipeline = pipeLine } };
+                        return new { create = new { _index = index, _type = documentType, pipeline = pipeLine } };
                     else
-                        return new { index = new { _index = index, _type = mappingType, pipeline = pipeLine } };
+                        return new { index = new { _index = index, _type = documentType, pipeline = pipeLine } };
                 }
             }
         }
