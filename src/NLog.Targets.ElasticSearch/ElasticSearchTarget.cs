@@ -232,6 +232,7 @@ namespace NLog.Targets.ElasticSearch
                 new ObjectTypeConvert(typeof(System.Reflection.MemberInfo)),   // Skip serializing all types in application
                 new ObjectTypeConvert(typeof(System.IO.Stream)),               // Skip serializing Stream properties, since they throw
                 new ObjectTypeConvert(typeof(System.Net.IPAddress)),           // Skip serializing IPAdress properties, since they throw when IPv6 address
+                new ObjectTypeConvert(typeof(System.Type))
             };
 
             _jsonSerializerSettings = new Lazy<JsonSerializerSettings>(() => CreateJsonSerializerSettings(false, ObjectTypeConverters), LazyThreadSafetyMode.PublicationOnly);
