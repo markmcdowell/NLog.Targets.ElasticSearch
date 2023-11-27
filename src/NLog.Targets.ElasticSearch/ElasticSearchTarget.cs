@@ -4,12 +4,12 @@ using System.Net;
 using System.Linq;
 using System.Threading;
 using Elasticsearch.Net;
-using Nest;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using NLog.Common;
 using NLog.Config;
 using NLog.Layouts;
+using System.Text;
 
 namespace NLog.Targets.ElasticSearch
 {
@@ -132,6 +132,19 @@ namespace NLog.Targets.ElasticSearch
         /// Set it to true to enable HttpCompression (Must be enabled on server)
         /// </summary>
         public bool EnableHttpCompression { get; set; }
+
+        /// <summary>
+        /// Set it to true to enable HttpPipelining (Must be enabled on server)
+        /// </summary>
+        public bool EnableHttpPipelining { get; set; }
+
+        /// <summary>
+        /// Set it to true to aid in debugging so that the original request and response JSON can be inspected.
+        /// </summary>
+        /// <remarks>
+        /// Remarks consider also to disable batching by not using NLog BufferingWrapper / AsyncWrapper
+        /// </remarks>
+        public bool EnableDebugMode { get; set; }
 
         /// <summary>
         /// Gets or sets the name of the elasticsearch index to write to.
@@ -328,6 +341,12 @@ namespace NLog.Targets.ElasticSearch
             if (EnableHttpCompression)
                 config = config.EnableHttpCompression();
 
+            if (EnableHttpPipelining)
+                config = config.EnableHttpPipelining();
+
+            if (EnableDebugMode)
+                config = config.EnableDebugMode();
+
             _client = new ElasticLowLevelClient(config);
 
             if (!string.IsNullOrEmpty(ExcludedProperties))
@@ -374,35 +393,41 @@ namespace NLog.Targets.ElasticSearch
             {
                 var payload = EnableJsonLayout ? FromPayloadWithJsonLayout(logEvents) : FormPayload(logEvents);
 
-                var result = _client.Bulk<BulkResponse>(payload);
+                var result = _client.Bulk<BytesResponse>(payload);
 
-                var exception = result.ApiCall?.Success ?? false ? null : result.OriginalException ?? new Exception("No error message. Enable Trace logging for more information.");
-
-                if (result.ServerError != null)
-                {
-                    InternalLogger.Error($"ElasticSearch: Server error: {result.ServerError}");
-                }
-
-                foreach (var itemWithError in result.ItemsWithErrors)
-                {
-                    InternalLogger.Error($"ElasticSearch: Bulk item failed: index:{itemWithError.Index} result:{itemWithError.Result} type:{itemWithError.Type} error:{itemWithError.Error}");
-                }
-
+                var exception = result.Success ? null : (result.OriginalException ?? new Exception("No error message. Configure EnableDebugMode=true and enable NLog InternalLogger."));
                 if (exception != null)
                 {
-                    InternalLogger.Error(exception.FlattenToActualException(), $"ElasticSearch: Failed to send log messages. Status={result.ApiCall?.HttpStatusCode} Uri={result.ApiCall?.Uri} DebugInformation={result.DebugInformation}");
+                    var serverResponse = "";
+                    if (result.TryGetServerError(out var serverError))
+                        serverResponse = serverError?.Error?.ToString();
+                    else if (result.Body?.Length > 0)
+                        serverResponse = Encoding.UTF8.GetString(result.Body);
+                    var debugInformation = EnableDebugMode ? result.DebugInformation : $"{result.DebugInformation} (Use EnableDebugMode=true for more details)";
+                    InternalLogger.Error(exception.FlattenToActualException(), $"ElasticSearch: Failed to send log messages. HttpStatus={result.HttpStatusCode} Uri={result.Uri} ServerStatus={serverError?.Status} ServerError={serverResponse} DebugInformation={debugInformation}");
                 }
-                else if (InternalLogger.IsTraceEnabled)
+                else if (result.HttpStatusCode < 200 || result.HttpStatusCode > 299)
                 {
-                    InternalLogger.Trace("ElasticSearch: Send Log DebugInfo={0}", result.DebugInformation);
+                    var serverResponse = "";
+                    if (result.TryGetServerError(out var serverError))
+                        serverResponse = serverError?.Error?.ToString();
+                    else if (result.Body?.Length > 0)
+                        serverResponse = Encoding.UTF8.GetString(result.Body);
+                    var debugInformation = EnableDebugMode ? result.DebugInformation : $"{result.DebugInformation} (Use EnableDebugMode=true for more details)";
+                    InternalLogger.Warn($"ElasticSearch: Failed to send log messages. HttpStatus={result.HttpStatusCode} Uri={result.Uri} ServerStatus={serverError?.Status} ServerError={serverResponse} DebugInformation={debugInformation}");
                 }
                 else if (InternalLogger.IsDebugEnabled)
                 {
-                    var warnings = result.ApiCall?.DeprecationWarnings;
-                    if (warnings != null && warnings.Any())
+                    // Set EnableDebugMode=true to improve server-error-respone-details
+                    var warnings = result.DeprecationWarnings ?? Array.Empty<string>();
+                    string warningInfo = warnings.Any() ? string.Join(", ", warnings) : string.Empty;
+                    if (!string.IsNullOrEmpty(warningInfo))
                     {
-                        string warningInfo = string.Join(", ", result.ApiCall.DeprecationWarnings);
-                        InternalLogger.Debug("ElasticSearch: Send Log Warnings={0}", warningInfo);
+                        InternalLogger.Debug("ElasticSearch: Send Log HttpStatus={0}, Warnings={1}, DebugInformation={2}", result.HttpStatusCode, warningInfo, result.DebugInformation);
+                    }
+                    else if (InternalLogger.IsTraceEnabled || EnableDebugMode)
+                    {
+                        InternalLogger.Debug("ElasticSearch: Send Log HttpStatus={0}, DebugInformation={2}", result.HttpStatusCode, result.DebugInformation);
                     }
                 }
 
