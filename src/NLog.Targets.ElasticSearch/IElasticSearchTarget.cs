@@ -92,12 +92,19 @@ namespace NLog.Targets.ElasticSearch
         Layout Index { get; set; }
 
         /// <summary>
+        /// Obsolete and replaced by <see cref="IncludeEventProperties"/> to match NLog naming convention.
         /// Gets or sets whether to include all properties of the log event in the document
         /// </summary>
+        [Obsolete("Replaced by IncludeEventProperties")]
         bool IncludeAllProperties { get; set; }
 
         /// <summary>
-        /// Gets or sets a comma separated list of excluded properties when setting <see cref="IncludeAllProperties"/>
+        /// Gets or sets whether to include LogEvent Properties in the document
+        /// </summary>
+        bool IncludeEventProperties { get; set; }
+
+        /// <summary>
+        /// Gets or sets a comma separated list of excluded properties when setting <see cref="IncludeEventProperties"/>
         /// </summary>
         string ExcludedProperties { get; set; }
 
