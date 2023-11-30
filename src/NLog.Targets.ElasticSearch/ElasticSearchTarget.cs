@@ -145,12 +145,19 @@ namespace NLog.Targets.ElasticSearch
         public Layout Index { get; set; } = "logstash-${date:format=yyyy.MM.dd}";
 
         /// <summary>
+        /// Obsolete and replaced by <see cref="IncludeEventProperties"/> to match NLog naming convention.
         /// Gets or sets whether to include all properties of the log event in the document
         /// </summary>
-        public bool IncludeAllProperties { get; set; }
+        [Obsolete("Replaced by IncludeEventProperties")]
+        public bool IncludeAllProperties { get => IncludeEventProperties; set => IncludeEventProperties = value; }
 
         /// <summary>
-        /// Gets or sets a comma separated list of excluded properties when setting <see cref="IElasticSearchTarget.IncludeAllProperties"/>
+        /// Gets or sets whether to include LogEvent Properties in the document
+        /// </summary>
+        public bool IncludeEventProperties { get; set; }
+
+        /// <summary>
+        /// Gets or sets a comma separated list of excluded properties when setting <see cref="IElasticSearchTarget.IncludeEventProperties"/>
         /// </summary>
         public string ExcludedProperties { get; set; }
 
@@ -506,7 +513,7 @@ namespace NLog.Targets.ElasticSearch
                 }
             }
 
-            if (IncludeAllProperties && logEvent.HasProperties)
+            if (IncludeEventProperties && logEvent.HasProperties)
             {
                 foreach (var p in logEvent.Properties)
                 {
